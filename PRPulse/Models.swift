@@ -91,6 +91,7 @@ struct PullRequest: Identifiable, Equatable {
     var hasConflicts: Bool = false
     var recentReviews: [PRReview] = []
     var recentComments: [PRComment] = []
+    var reviewThreads: [PRCommentThread] = []
     var isRequestedReviewer: Bool = false
     var isReviewedByMe: Bool = false
 
@@ -104,6 +105,11 @@ struct PullRequest: Identifiable, Equatable {
 
     static func == (lhs: PullRequest, rhs: PullRequest) -> Bool {
         lhs.id == rhs.id
+    }
+
+    var allComments: [PRComment] {
+        let threaded = reviewThreads.flatMap { $0.comments }
+        return (recentComments + threaded).sorted { $0.createdAt > $1.createdAt }
     }
 }
 
@@ -195,6 +201,7 @@ struct PRComment: Identifiable, Equatable {
     let author: String
     let body: String
     let createdAt: Date
+    let url: URL?
 
     var preview: String {
         let trimmed = body.replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespaces)
@@ -202,6 +209,15 @@ struct PRComment: Identifiable, Equatable {
             return String(trimmed.prefix(100)) + "…"
         }
         return trimmed
+    }
+}
+
+struct PRCommentThread: Identifiable, Equatable {
+    let id: String
+    var comments: [PRComment]
+
+    var latestComment: PRComment? {
+        comments.max(by: { $0.createdAt < $1.createdAt })
     }
 }
 

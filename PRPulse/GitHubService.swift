@@ -168,6 +168,7 @@ final class GitHubService: ObservableObject {
                   totalCount
                   nodes {
                     id
+                    url
                     body
                     createdAt
                     author {
@@ -177,9 +178,11 @@ final class GitHubService: ObservableObject {
                 }
                 reviewThreads(last: 50) {
                   nodes {
+                    id
                     comments(last: 20) {
                       nodes {
                         id
+                        url
                         body
                         createdAt
                         author {
@@ -299,19 +302,23 @@ final class GitHubService: ObservableObject {
 
                         let id = c["id"] as? String ?? UUID().uuidString
                         guard let createdAt = parseDate(dateStr) else { return nil }
+                        let url = (c["url"] as? String).flatMap { URL(string: $0) }
                         return PRComment(
                             id: id,
                             author: login,
                             body: body,
-                            createdAt: createdAt
+                            createdAt: createdAt,
+                            url: url
                         )
                     }
                 }
             }
 
+            var reviewThreadModels: [PRCommentThread] = []
             if let reviewThreads = node["reviewThreads"] as? [String: Any],
                let threadNodes = reviewThreads["nodes"] as? [[String: Any]] {
                 for thread in threadNodes {
+                    let threadId = thread["id"] as? String ?? UUID().uuidString
                     guard let comments = thread["comments"] as? [String: Any],
                           let commentNodes = comments["nodes"] as? [[String: Any]] else { continue }
 
@@ -328,18 +335,25 @@ final class GitHubService: ObservableObject {
 
                         let id = c["id"] as? String ?? UUID().uuidString
                         guard let createdAt = parseDate(dateStr) else { return nil }
+                        let url = (c["url"] as? String).flatMap { URL(string: $0) }
                         return PRComment(
                             id: id,
                             author: login,
                             body: body,
-                            createdAt: createdAt
+                            createdAt: createdAt,
+                            url: url
                         )
                     }
-                    recentComments.append(contentsOf: parsed)
+                    if !parsed.isEmpty {
+                        let sorted = parsed.sorted { $0.createdAt > $1.createdAt }
+                        let threadModel = PRCommentThread(id: threadId, comments: sorted)
+                        reviewThreadModels.append(threadModel)
+                    }
                 }
             }
 
             recentComments.sort { $0.createdAt > $1.createdAt }
+            reviewThreadModels.sort { ($0.latestComment?.createdAt ?? .distantPast) > ($1.latestComment?.createdAt ?? .distantPast) }
             var recentReviews: [PRReview] = []
             if let reviews = node["reviews"] as? [String: Any],
                let reviewNodes = reviews["nodes"] as? [[String: Any]] {
@@ -376,7 +390,8 @@ final class GitHubService: ObservableObject {
                 reviewState: reviewState,
                 hasConflicts: hasConflicts,
                 recentReviews: recentReviews,
-                recentComments: recentComments
+                recentComments: recentComments,
+                reviewThreads: reviewThreadModels
             ))
         }
         return (pullRequests: results, viewerLogin: viewerLogin)
@@ -429,8 +444,8 @@ final class GitHubService: ObservableObject {
                 ciStatus: .success, failedChecks: [], reviewState: .approved,
                 hasConflicts: false,
                 recentComments: [
-                    PRComment(id: "mock-1", author: "sarah", body: "LGTM! Nice work on the color tokens.", createdAt: Date().addingTimeInterval(-3600)),
-                    PRComment(id: "mock-2", author: "mike", body: "Approved — tested on Safari and Chrome.", createdAt: Date().addingTimeInterval(-1800))
+                    PRComment(id: "mock-1", author: "sarah", body: "LGTM! Nice work on the color tokens.", createdAt: Date().addingTimeInterval(-3600), url: URL(string: "https://github.com")),
+                    PRComment(id: "mock-2", author: "mike", body: "Approved — tested on Safari and Chrome.", createdAt: Date().addingTimeInterval(-1800), url: URL(string: "https://github.com"))
                 ]
             ),
             PullRequest(
@@ -440,7 +455,23 @@ final class GitHubService: ObservableObject {
                 ciStatus: .failure, failedChecks: ["Build / test-linux", "CI / integration-tests"], reviewState: .changesRequested,
                 hasConflicts: true,
                 recentComments: [
-                    PRComment(id: "mock-3", author: "alex", body: "The connection pool still leaks under high concurrency. See my inline comments.", createdAt: Date().addingTimeInterval(-7200))
+                    PRComment(id: "mock-3", author: "alex", body: "The connection pool still leaks under high concurrency. See my inline comments.", createdAt: Date().addingTimeInterval(-7200), url: URL(string: "https://github.com"))
+                ],
+                reviewThreads: [
+                    PRCommentThread(
+                        id: "thread-1",
+                        comments: [
+                            PRComment(id: "mock-3a", author: "jordan", body: "This block looks suspicious. Can we add a test for this path?", createdAt: Date().addingTimeInterval(-14400), url: URL(string: "https://github.com")),
+                            PRComment(id: "mock-3b", author: "karim", body: "Good catch. I’ll add coverage and re-run the suite.", createdAt: Date().addingTimeInterval(-10800), url: URL(string: "https://github.com"))
+                        ]
+                    ),
+                    PRCommentThread(
+                        id: "thread-2",
+                        comments: [
+                            PRComment(id: "mock-3c", author: "alex", body: "We should also ensure the timeout doesn’t leak sockets.", createdAt: Date().addingTimeInterval(-9000), url: URL(string: "https://github.com")),
+                            PRComment(id: "mock-3d", author: "sarah", body: "Agreed — I’ll add a regression test before merge.", createdAt: Date().addingTimeInterval(-7200), url: URL(string: "https://github.com"))
+                        ]
+                    )
                 ]
             ),
             PullRequest(
@@ -457,7 +488,7 @@ final class GitHubService: ObservableObject {
                 ciStatus: .unknown, failedChecks: [], reviewState: .unknown,
                 hasConflicts: false,
                 recentComments: [
-                    PRComment(id: "mock-4", author: "karim", body: "Still exploring — don't review yet", createdAt: Date().addingTimeInterval(-86400))
+                    PRComment(id: "mock-4", author: "karim", body: "Still exploring — don't review yet", createdAt: Date().addingTimeInterval(-86400), url: URL(string: "https://github.com"))
                 ]
             ),
             PullRequest(
@@ -467,7 +498,7 @@ final class GitHubService: ObservableObject {
                 ciStatus: .success, failedChecks: [], reviewState: .approved,
                 hasConflicts: false,
                 recentComments: [
-                    PRComment(id: "mock-5", author: "dana", body: "Ship it! 🚀", createdAt: Date().addingTimeInterval(-600))
+                    PRComment(id: "mock-5", author: "dana", body: "Ship it! 🚀", createdAt: Date().addingTimeInterval(-600), url: URL(string: "https://github.com"))
                 ]
             ),
             PullRequest(
@@ -477,7 +508,7 @@ final class GitHubService: ObservableObject {
                 ciStatus: .failure, failedChecks: ["CI / lint"], reviewState: .pending,
                 hasConflicts: false,
                 recentComments: [
-                    PRComment(id: "mock-6", author: "jordan", body: "Can you add a test for the rotation edge case?", createdAt: Date().addingTimeInterval(-5400))
+                    PRComment(id: "mock-6", author: "jordan", body: "Can you add a test for the rotation edge case?", createdAt: Date().addingTimeInterval(-5400), url: URL(string: "https://github.com"))
                 ]
             ),
         ]
@@ -495,6 +526,7 @@ extension GitHubService {
         let service = GitHubService()
         service.pullRequests = Self.mockPullRequests
         service.lastUpdated = Date()
+        service.currentUserLogin = "karim"
         service.permissionsState = PermissionsState(
             canReadPullRequests: true,
             canReadCommitStatuses: true,

@@ -55,7 +55,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     private func handleCommentNotifications(for pr: PullRequest, prKey: String, currentUserLogin: String) {
         guard hasLastSeen(prefix: NotificationPreferences.Keys.lastSeenCommentPrefix, prKey: prKey) else { return }
         let lastSeen = lastSeenDate(prefix: NotificationPreferences.Keys.lastSeenCommentPrefix, prKey: prKey)
-        let newComments = pr.recentComments
+        let newComments = pr.allComments
             .filter { $0.createdAt > lastSeen }
             .filter { !isFromSelf(author: $0.author, currentUserLogin: currentUserLogin) }
 
@@ -101,10 +101,10 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     }
 
     private func updateLastSeenMarkers(for pr: PullRequest, prKey: String) {
-        if pr.recentComments.isEmpty && !hasLastSeen(prefix: NotificationPreferences.Keys.lastSeenCommentPrefix, prKey: prKey) {
+        if pr.allComments.isEmpty && !hasLastSeen(prefix: NotificationPreferences.Keys.lastSeenCommentPrefix, prKey: prKey) {
             setLastSeenDate(prefix: NotificationPreferences.Keys.lastSeenCommentPrefix, prKey: prKey, date: Date())
         }
-        if let latestComment = pr.recentComments.max(by: { $0.createdAt < $1.createdAt }) {
+        if let latestComment = pr.allComments.max(by: { $0.createdAt < $1.createdAt }) {
             setLastSeenDate(prefix: NotificationPreferences.Keys.lastSeenCommentPrefix, prKey: prKey, date: latestComment.createdAt)
         }
 

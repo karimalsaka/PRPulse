@@ -114,7 +114,7 @@ struct PRListView: View {
                         LazyVStack(alignment: .leading, spacing: 12) {
                             let filtered = service.filteredPullRequests
                             ForEach(Array(filtered.enumerated()), id: \.element.id) { _, pr in
-                                PRRowView(pr: pr, permissionsState: service.permissionsState)
+                                PRRowView(pr: pr, permissionsState: service.permissionsState, currentUserLogin: service.currentUserLogin)
                             }
                         }
                         .padding(.horizontal, 14)
@@ -244,10 +244,23 @@ struct HealthSummaryView: View {
 struct PRRowView: View {
     let pr: PullRequest
     let permissionsState: PermissionsState
+    let currentUserLogin: String?
     @State private var isHovered = false
     @State private var isCommentsHovered = false
     @State private var showComments = false
-    private var displayCommentCount: Int { pr.recentComments.count }
+    @State private var showThreads = false
+    private var displayCommentCount: Int { pr.allComments.count }
+    private var singleThreadComments: [PRComment] {
+        pr.reviewThreads
+            .filter { $0.comments.count == 1 }
+            .flatMap { $0.comments }
+    }
+    private var multiCommentThreads: [PRCommentThread] {
+        pr.reviewThreads.filter { $0.comments.count > 1 }
+    }
+    private var discussionComments: [PRComment] {
+        (pr.recentComments + singleThreadComments).sorted(by: { $0.createdAt < $1.createdAt })
+    }
 
     var body: some View {
         let cornerRadius: CGFloat = 18
@@ -373,98 +386,136 @@ struct PRRowView: View {
 
                     // Comments — only show if we have permission
                     if permissionsState.canReadComments && displayCommentCount > 0 {
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack(spacing: 10) {
-                                Image(systemName: showComments ? "chevron.down.circle.fill" : "chevron.right.circle.fill")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundColor(showComments ? AppTheme.accent : .secondary)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Discussion")
-                                        .font(.caption)
-                                        .fontWeight(.semibold)
-                                    Text(showComments ? "Hide comments" : "Show latest comments")
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary)
-                                }
-                                Spacer()
-                                Text("\(displayCommentCount)")
-                                    .font(.system(size: 10, weight: .bold, design: .rounded))
-                                    .foregroundColor(showComments ? .white : AppTheme.accent)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(showComments ? AppTheme.accent : AppTheme.accentSoft)
-                                    .cornerRadius(999)
-                            }
-                            .foregroundColor(.primary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 10)
-                            .background(
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .fill(AppTheme.surface)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                            .stroke(isCommentsHovered ? AppTheme.strokeStrong : AppTheme.stroke, lineWidth: 1)
-                                    )
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                            .fill(AppTheme.hoverOverlay.opacity(isCommentsHovered ? 1 : 0))
-                                    )
-                            )
-                            .contentShape(Rectangle())
-                            .onHover { hovering in
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    isCommentsHovered = hovering
-                                }
-                                if hovering {
-                                    NSCursor.pointingHand.push()
-                                } else {
-                                    NSCursor.pop()
-                                }
-                            }
-                            .onTapGesture {
-                                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                                    showComments.toggle()
-                                }
-                            }
-
-                            if showComments {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    ForEach(pr.recentComments) { comment in
-                                        HStack(alignment: .top, spacing: 8) {
-                                            Circle()
-                                                .fill(AppTheme.accent.opacity(0.16))
-                                                .frame(width: 18, height: 18)
-                                                .overlay(
-                                                    Text(comment.author.prefix(1).uppercased())
-                                                        .font(.system(size: 9, weight: .bold, design: .rounded))
-                                                        .foregroundColor(AppTheme.accent)
-                                                )
-                                            VStack(alignment: .leading, spacing: 2) {
-                                                Text(comment.author)
-                                                    .font(.caption2)
-                                                    .fontWeight(.semibold)
-                                                    .foregroundColor(AppTheme.accent)
-                                                Text(comment.preview)
-                                                    .font(.caption2)
-                                                    .foregroundColor(.secondary)
-                                                    .lineLimit(3)
-                                            }
-                                            Spacer(minLength: 0)
+                        VStack(alignment: .leading, spacing: 12) {
+                            if !discussionComments.isEmpty {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    HStack(spacing: 10) {
+                                        Image(systemName: showComments ? "chevron.down.circle.fill" : "chevron.right.circle.fill")
+                                            .font(.system(size: 12, weight: .semibold))
+                                            .foregroundColor(showComments ? AppTheme.accent : .secondary)
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text("Discussion")
+                                                .font(.caption)
+                                                .fontWeight(.semibold)
+                                            Text(showComments ? "Hide comments" : "Show latest comments")
+                                                .font(.caption2)
+                                                .foregroundColor(.secondary)
                                         }
-                                        .padding(.horizontal, 12) 
-                                        .padding(.vertical, 10)
-                                        .background(AppTheme.surface)
-                                        .cornerRadius(12)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                                .stroke(AppTheme.stroke, lineWidth: 1)
-                                        )
+                                        Spacer()
+                                        Text("\(discussionComments.count)")
+                                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                                            .foregroundColor(showComments ? .white : AppTheme.accent)
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(showComments ? AppTheme.accent : AppTheme.accentSoft)
+                                            .cornerRadius(999)
+                                    }
+                                    .foregroundColor(.primary)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 10)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .fill(AppTheme.surface)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                                    .stroke(isCommentsHovered ? AppTheme.strokeStrong : AppTheme.stroke, lineWidth: 1)
+                                            )
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                                    .fill(AppTheme.hoverOverlay.opacity(isCommentsHovered ? 1 : 0))
+                                            )
+                                    )
+                                    .contentShape(Rectangle())
+                                    .onHover { hovering in
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            isCommentsHovered = hovering
+                                        }
+                                        if hovering {
+                                            NSCursor.pointingHand.push()
+                                        } else {
+                                            NSCursor.pop()
+                                        }
+                                    }
+                                    .onTapGesture {
+                                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                            showComments.toggle()
+                                        }
+                                    }
+
+                                    if showComments {
+                                        VStack(alignment: .leading, spacing: 8) {
+                                            ForEach(discussionComments) { comment in
+                                                CommentRow(
+                                                    comment: comment,
+                                                    isSelf: isSelfComment(comment),
+                                                    showReply: comment.id == discussionComments.last?.id && !isSelfComment(comment),
+                                                    replyURL: comment.url
+                                                )
+                                            }
+                                        }
+                                        .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
                                     }
                                 }
-                                .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
+                                .animation(.spring(response: 0.3, dampingFraction: 0.85), value: showComments)
+                            }
+
+                            if !multiCommentThreads.isEmpty {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    HStack(spacing: 10) {
+                                        Image(systemName: showThreads ? "chevron.down.circle.fill" : "chevron.right.circle.fill")
+                                            .font(.system(size: 12, weight: .semibold))
+                                            .foregroundColor(showThreads ? AppTheme.accent : .secondary)
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text("Inline Comments")
+                                                .font(.caption)
+                                                .fontWeight(.semibold)
+                                            Text(showThreads ? "Hide inline threads" : "Show inline threads")
+                                                .font(.caption2)
+                                                .foregroundColor(.secondary)
+                                        }
+                                        Spacer()
+                                        Text("\(multiCommentThreads.count)")
+                                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                                            .foregroundColor(showThreads ? .white : AppTheme.accent)
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(showThreads ? AppTheme.accent : AppTheme.accentSoft)
+                                            .cornerRadius(999)
+                                    }
+                                    .foregroundColor(.primary)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 10)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .fill(AppTheme.surface)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                                    .stroke(isCommentsHovered ? AppTheme.strokeStrong : AppTheme.stroke, lineWidth: 1)
+                                            )
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                                    .fill(AppTheme.hoverOverlay.opacity(isCommentsHovered ? 1 : 0))
+                                            )
+                                    )
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                            showThreads.toggle()
+                                        }
+                                    }
+
+                                    if showThreads {
+                                        VStack(alignment: .leading, spacing: 10) {
+                                            ForEach(multiCommentThreads) { thread in
+                                                threadView(thread)
+                                            }
+                                        }
+                                        .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
+                                    }
+                                }
+                                .animation(.spring(response: 0.3, dampingFraction: 0.85), value: showThreads)
                             }
                         }
-                        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: showComments)
                     }
                 }
             .padding(.horizontal, 16)
@@ -511,6 +562,146 @@ struct PRRowView: View {
         case .unknown: return .gray
         }
     }
+
+    private func isSelfComment(_ comment: PRComment) -> Bool {
+        guard let login = currentUserLogin?.lowercased(), !login.isEmpty else { return false }
+        return comment.author.lowercased() == login
+    }
+
+    private func threadView(_ thread: PRCommentThread) -> some View {
+        let sortedComments = thread.comments.sorted(by: { $0.createdAt < $1.createdAt })
+        let starter = sortedComments.first
+        let latest = sortedComments.last
+        let starterLabel = starter.map { isSelfComment($0) ? "You started a thread" : "\($0.author) started a thread" } ?? "Thread"
+        let latestLabel: String = {
+            guard let latest = latest else { return "" }
+            return isSelfComment(latest) ? "You replied most recently" : "\(latest.author) replied most recently"
+        }()
+
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "bubble.left.and.bubble.right.fill")
+                    .font(.system(size: 10))
+                    .foregroundColor(AppTheme.accent)
+                Text(starterLabel)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                if !latestLabel.isEmpty {
+                    Text("• \(latestLabel)")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(sortedComments) { comment in
+                    CommentRow(
+                        comment: comment,
+                        isSelf: isSelfComment(comment),
+                        showReply: comment.id == latest?.id && !isSelfComment(comment),
+                        replyURL: comment.url
+                    )
+                        .padding(.leading, 6)
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(AppTheme.surface)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(AppTheme.stroke, lineWidth: 1)
+                )
+        )
+    }
+}
+
+struct CommentRow: View {
+    let comment: PRComment
+    let isSelf: Bool
+    let showReply: Bool
+    let replyURL: URL?
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Circle()
+                .fill((isSelf ? AppTheme.info : AppTheme.accent).opacity(0.16))
+                .frame(width: 18, height: 18)
+                .overlay(
+                    Text(isSelf ? "Y" : comment.author.prefix(1).uppercased())
+                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                        .foregroundColor(isSelf ? AppTheme.info : AppTheme.accent)
+                )
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(isSelf ? "You" : comment.author)
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(isSelf ? AppTheme.info : AppTheme.accent)
+
+                    Spacer()
+
+                    Text(relativeTimestamp(comment.createdAt))
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                Text(comment.preview)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .lineLimit(3)
+
+                if showReply, let replyURL {
+                    HStack {
+                        Spacer()
+                        Button {
+                            NSWorkspace.shared.open(replyURL)
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrowshape.turn.up.left.fill")
+                                    .font(.system(size: 9, weight: .semibold))
+                                Text("Reply")
+                                    .font(.caption2)
+                                    .fontWeight(.semibold)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(AppTheme.accentSoft)
+                            .foregroundColor(AppTheme.accent)
+                            .cornerRadius(999)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(AppTheme.surface)
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(AppTheme.stroke, lineWidth: 1)
+        )
+    }
+}
+
+private func relativeTimestamp(_ date: Date) -> String {
+    let now = Date()
+    let hours = now.timeIntervalSince(date) / 3600
+    if hours <= 12 {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        return formatter.localizedString(for: date, relativeTo: now)
+    }
+
+    let formatter = DateFormatter()
+    formatter.dateStyle = .medium
+    formatter.timeStyle = .short
+    return formatter.string(from: date)
 }
 
 struct StatusPill: View {

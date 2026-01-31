@@ -170,9 +170,10 @@ private struct SetupRequiredView: View {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let hasToken = TokenManager.shared.hasToken
-        DispatchQueue.main.async {
-            SettingsWindowController.shared.show(showOnboarding: !hasToken) {}
+        if !TokenManager.shared.hasToken {
+            DispatchQueue.main.async {
+                SettingsWindowController.shared.show(showOnboarding: true) {}
+            }
         }
     }
 }
