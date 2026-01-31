@@ -8,19 +8,14 @@ struct PRListView: View {
         ZStack {
             AppBackground()
 
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 14) {
                 // Header
                 HStack(alignment: .center) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "arrow.triangle.pull")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(AppTheme.accent)
-                            Text("PRPulse")
-                                .font(.system(size: 16, weight: .semibold, design: .rounded))
-                        }
-                        Text("Your pull request radar")
-                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Pull Requests")
+                            .font(.system(size: 20, weight: .semibold, design: .rounded))
+                        Text("Stay on top of reviews and checks")
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
                             .foregroundColor(.secondary)
                     }
 
@@ -30,13 +25,27 @@ struct PRListView: View {
                         ProgressView()
                             .controlSize(.small)
                             .frame(width: 20, height: 20)
+                            .padding(.trailing, 20)
                     } else {
                         Button(action: { service.fetch() }) {
-                            Image(systemName: "arrow.clockwise")
-                                .font(.system(size: 12, weight: .semibold))
-                                .padding(8)
+                            HStack(spacing: 6) {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 11, weight: .semibold))
+                                Text("Refresh")
+                                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
                         }
-                        .buttonStyle(.borderless)
+                        .buttonStyle(.plain)
+                        .background(
+                            RoundedRectangle(cornerRadius: 999, style: .continuous)
+                                .fill(AppTheme.surface)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 999, style: .continuous)
+                                        .stroke(AppTheme.stroke, lineWidth: 1)
+                                )
+                        )
                         .help("Refresh")
                     }
                 }
@@ -65,7 +74,7 @@ struct PRListView: View {
                         }
                     }
                     .padding(.horizontal, 14)
-                    .padding(.vertical, 6)
+                    .padding(.vertical, 4)
                 }
 
                 if let error = service.errorMessage {
@@ -166,18 +175,23 @@ struct FilterPill: View {
                     Text("\(count)")
                         .font(.system(size: 9, weight: .bold, design: .rounded))
                         .foregroundColor(isActive ? .white : AppTheme.accent)
+                        .shadow(color: isActive ? Color.black.opacity(0.5) : .clear, radius: 1, x: 0, y: 1)
                         .padding(.horizontal, 4)
                         .padding(.vertical, 1)
-                        .background(isActive ? AppTheme.accent : AppTheme.accentSoft)
+                        .background(isActive ? AppTheme.accentStrong : AppTheme.accentSoft)
                         .cornerRadius(6)
                 }
             }
             .foregroundColor(isActive ? AppTheme.accent : .secondary)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
             .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                Capsule(style: .continuous)
                     .fill(isActive ? AppTheme.accentSoft : AppTheme.surface)
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .stroke(isActive ? AppTheme.accent.opacity(0.15) : AppTheme.stroke, lineWidth: 1)
+                    )
             )
         }
         .buttonStyle(.plain)
@@ -231,48 +245,51 @@ struct PRRowView: View {
     let pr: PullRequest
     let permissionsState: PermissionsState
     @State private var isHovered = false
+    @State private var isCommentsHovered = false
     @State private var showComments = false
 
     var body: some View {
-        let cornerRadius: CGFloat = 16
+        let cornerRadius: CGFloat = 18
+        let cardHoverActive = isHovered && !isCommentsHovered
         ZStack(alignment: .leading) {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(AppTheme.surface)
+                .fill(AppTheme.elevatedSurface)
                 .overlay(
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(Color.white.opacity(isHovered ? 0.04 : 0))
+                        .fill(AppTheme.hoverOverlay.opacity(cardHoverActive ? 1 : 0))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .stroke(isHovered ? AppTheme.accent.opacity(0.45) : AppTheme.stroke.opacity(0.6), lineWidth: 1)
+                        .stroke(cardHoverActive ? AppTheme.strokeStrong : AppTheme.stroke, lineWidth: 1)
                 )
-                .shadow(color: Color.black.opacity(isHovered ? 0.12 : 0.04), radius: isHovered ? 10 : 8, x: 0, y: isHovered ? 6 : 4)
+                .shadow(color: AppTheme.cardShadow.opacity(cardHoverActive ? 1 : 0.75), radius: cardHoverActive ? 16 : 12, x: 0, y: cardHoverActive ? 10 : 8)
 
-            Rectangle()
-                .fill(statusAccent)
-                .frame(width: 4)
-                .cornerRadius(2)
-                .padding(.vertical, cornerRadius)
-                .allowsHitTesting(false)
-
-            VStack(alignment: .leading, spacing: 8) {
-                    VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 10) {
                         // Top line: repo + number + draft badge
                         HStack(spacing: 6) {
-                            Text(pr.repoName)
-                                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                .foregroundColor(AppTheme.accent)
-                            Text("#\(pr.number)")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                            HStack(spacing: 6) {
+                                Text(pr.repoName)
+                                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                    .foregroundColor(AppTheme.accent)
+                                Text("#\(pr.number)")
+                                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(
+                                Capsule(style: .continuous)
+                                    .fill(AppTheme.accentSoft)
+                            )
                             if pr.isDraft {
                                 Text("DRAFT")
                                     .font(.system(size: 9, weight: .bold, design: .rounded))
                                     .foregroundColor(.secondary)
                                     .padding(.horizontal, 6)
                                     .padding(.vertical, 2)
-                                    .background(Color.secondary.opacity(0.15))
-                                    .cornerRadius(6)
+                                    .background(Color.secondary.opacity(0.12))
+                                    .cornerRadius(999)
                             }
                             Spacer()
                             // Conflict badge (top-right, prominent)
@@ -287,13 +304,13 @@ struct PRRowView: View {
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
                                 .background(AppTheme.dangerSoft)
-                                .cornerRadius(6)
+                                .cornerRadius(999)
                         }
                         }
 
                         // Title
                         Text(pr.title)
-                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
                             .lineLimit(2)
                             .foregroundColor(.primary)
 
@@ -348,7 +365,7 @@ struct PRRowView: View {
                             .padding(.horizontal, 8)
                             .padding(.vertical, 6)
                             .background(AppTheme.dangerSoft.opacity(0.6))
-                            .cornerRadius(8)
+                            .cornerRadius(999)
                         }
                     }
                     .allowsHitTesting(false)
@@ -375,20 +392,34 @@ struct PRRowView: View {
                                     .padding(.horizontal, 6)
                                     .padding(.vertical, 2)
                                     .background(showComments ? AppTheme.accent : AppTheme.accentSoft)
-                                    .cornerRadius(7)
+                                    .cornerRadius(999)
                             }
                             .foregroundColor(.primary)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 8)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
                             .background(
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
                                     .fill(AppTheme.surface)
                                     .overlay(
-                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                            .stroke(AppTheme.stroke.opacity(0.5), lineWidth: 1)
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .stroke(isCommentsHovered ? AppTheme.strokeStrong : AppTheme.stroke, lineWidth: 1)
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .fill(AppTheme.hoverOverlay.opacity(isCommentsHovered ? 1 : 0))
                                     )
                             )
                             .contentShape(Rectangle())
+                            .onHover { hovering in
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    isCommentsHovered = hovering
+                                }
+                                if hovering {
+                                    NSCursor.pointingHand.push()
+                                } else {
+                                    NSCursor.pop()
+                                }
+                            }
                             .onTapGesture {
                                 withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
                                     showComments.toggle()
@@ -400,7 +431,7 @@ struct PRRowView: View {
                                     ForEach(pr.recentComments) { comment in
                                         HStack(alignment: .top, spacing: 8) {
                                             Circle()
-                                                .fill(AppTheme.accent.opacity(0.18))
+                                                .fill(AppTheme.accent.opacity(0.16))
                                                 .frame(width: 18, height: 18)
                                                 .overlay(
                                                     Text(comment.author.prefix(1).uppercased())
@@ -419,10 +450,14 @@ struct PRRowView: View {
                                             }
                                             Spacer(minLength: 0)
                                         }
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 8)
-                                        .background(Color.primary.opacity(0.04))
-                                        .cornerRadius(10)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 10)
+                                        .background(AppTheme.surface)
+                                        .cornerRadius(12)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                                .stroke(AppTheme.stroke, lineWidth: 1)
+                                        )
                                     }
                                 }
                                 .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
@@ -432,7 +467,7 @@ struct PRRowView: View {
                     }
                 }
             .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.vertical, 14)
         }
         .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .onTapGesture {
@@ -442,9 +477,9 @@ struct PRRowView: View {
             withAnimation(.easeInOut(duration: 0.2)) {
                 isHovered = hovering
             }
-            if hovering {
+            if hovering && !isCommentsHovered {
                 NSCursor.pointingHand.push()
-            } else {
+            } else if !hovering {
                 NSCursor.pop()
             }
         }
@@ -491,10 +526,10 @@ struct StatusPill: View {
                 .font(.caption2)
                 .foregroundColor(.secondary)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 5)
         .background(color.opacity(0.12))
-        .cornerRadius(8)
+        .cornerRadius(999)
     }
 }
 

@@ -1,13 +1,34 @@
 import SwiftUI
+#if canImport(AppKit)
+import AppKit
+#endif
 
 enum AppTheme {
-    // Strong Blue theme
-    static let accent = Color(red: 0.16, green: 0.46, blue: 0.94)
-    static let accentStrong = Color(red: 0.12, green: 0.40, blue: 0.88)
-    static let success = Color(red: 0.34, green: 0.76, blue: 0.54)
-    static let danger = Color(red: 0.86, green: 0.36, blue: 0.38)
-    static let warning = Color(red: 0.92, green: 0.56, blue: 0.26)
-    static let info = Color(red: 0.56, green: 0.72, blue: 0.90)
+    // Soft, airy theme with dark mode support
+    static let accent = dynamic(
+        light: NSColor(calibratedRed: 0.55, green: 0.53, blue: 0.78, alpha: 1),
+        dark: NSColor(calibratedRed: 0.62, green: 0.60, blue: 0.84, alpha: 1)
+    )
+    static let accentStrong = dynamic(
+        light: NSColor(calibratedRed: 0.40, green: 0.38, blue: 0.62, alpha: 1),
+        dark: NSColor(calibratedRed: 0.48, green: 0.46, blue: 0.70, alpha: 1)
+    )
+    static let success = dynamic(
+        light: NSColor(calibratedRed: 0.42, green: 0.70, blue: 0.56, alpha: 1),
+        dark: NSColor(calibratedRed: 0.46, green: 0.74, blue: 0.60, alpha: 1)
+    )
+    static let danger = dynamic(
+        light: NSColor(calibratedRed: 0.76, green: 0.46, blue: 0.52, alpha: 1),
+        dark: NSColor(calibratedRed: 0.80, green: 0.50, blue: 0.56, alpha: 1)
+    )
+    static let warning = dynamic(
+        light: NSColor(calibratedRed: 0.78, green: 0.65, blue: 0.42, alpha: 1),
+        dark: NSColor(calibratedRed: 0.82, green: 0.70, blue: 0.48, alpha: 1)
+    )
+    static let info = dynamic(
+        light: NSColor(calibratedRed: 0.50, green: 0.62, blue: 0.82, alpha: 1),
+        dark: NSColor(calibratedRed: 0.54, green: 0.66, blue: 0.86, alpha: 1)
+    )
 
     static let accentSoft = accent.opacity(0.14)
     static let successSoft = success.opacity(0.12)
@@ -15,32 +36,100 @@ enum AppTheme {
     static let warningSoft = warning.opacity(0.12)
     static let infoSoft = info.opacity(0.12)
 
-    static let canvas = Color(nsColor: .underPageBackgroundColor).opacity(0.98)
-    static let surface = Color(nsColor: .controlBackgroundColor).opacity(0.96)
-    static let elevatedSurface = Color(nsColor: .textBackgroundColor).opacity(0.98)
-    static let stroke = Color(nsColor: .separatorColor)
-    static let muted = Color(nsColor: .secondaryLabelColor)
+    static let canvas = dynamic(
+        light: NSColor(calibratedWhite: 0.98, alpha: 1),
+        dark: NSColor(calibratedWhite: 0.08, alpha: 1)
+    )
+    static let surface = dynamic(
+        light: NSColor(calibratedWhite: 0.97, alpha: 1),
+        dark: NSColor(calibratedWhite: 0.12, alpha: 1)
+    )
+    static let elevatedSurface = dynamic(
+        light: NSColor(calibratedWhite: 0.96, alpha: 1),
+        dark: NSColor(calibratedWhite: 0.1, alpha: 1)
+    )
+    static let stroke = dynamic(
+        light: NSColor(calibratedWhite: 0.0, alpha: 0.06),
+        dark: NSColor(calibratedWhite: 1.0, alpha: 0.08)
+    )
+    static let strokeStrong = dynamic(
+        light: NSColor(calibratedWhite: 0.0, alpha: 0.12),
+        dark: NSColor(calibratedWhite: 1.0, alpha: 0.16)
+    )
+    static let muted = dynamic(
+        light: NSColor(calibratedWhite: 0.0, alpha: 0.55),
+        dark: NSColor(calibratedWhite: 1.0, alpha: 0.60)
+    )
+    static let hoverOverlay = dynamic(
+        light: NSColor(calibratedWhite: 0.0, alpha: 0.02),
+        dark: NSColor(calibratedWhite: 1.0, alpha: 0.04)
+    )
+    static let cardShadow = dynamic(
+        light: NSColor(calibratedWhite: 0.0, alpha: 0.08),
+        dark: NSColor(calibratedWhite: 0.0, alpha: 0.45)
+    )
 
     static let heroGradient = LinearGradient(
         colors: [
-            Color(nsColor: .windowBackgroundColor),
-            Color(nsColor: .windowBackgroundColor)
+            dynamic(
+                light: NSColor(calibratedWhite: 0.98, alpha: 1),
+                dark: NSColor(calibratedWhite: 0.10, alpha: 1)
+            ),
+            dynamic(
+                light: NSColor(calibratedWhite: 0.95, alpha: 1),
+                dark: NSColor(calibratedWhite: 0.06, alpha: 1)
+            )
         ],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
 
     static let badgeGradient = LinearGradient(
-        colors: [accent.opacity(0.9), accent.opacity(0.55)],
+        colors: [accent.opacity(0.95), accentStrong.opacity(0.9)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
+
+    #if canImport(AppKit)
+    private static func dynamic(light: NSColor, dark: NSColor) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            if appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {
+                return dark
+            }
+            return light
+        })
+    }
+    #else
+    private static func dynamic(light: UIColor, dark: UIColor) -> Color {
+        Color(uiColor: UIColor { trait in
+            trait.userInterfaceStyle == .dark ? dark : light
+        })
+    }
+    #endif
 }
 
 struct AppBackground: View {
     var body: some View {
         ZStack {
             AppTheme.heroGradient
+            RadialGradient(
+                colors: [
+                    AppTheme.accent.opacity(0.12),
+                    Color.clear
+                ],
+                center: .topTrailing,
+                startRadius: 30,
+                endRadius: 360
+            )
+            RadialGradient(
+                colors: [
+                    AppTheme.info.opacity(0.08),
+                    Color.clear
+                ],
+                center: .bottomLeading,
+                startRadius: 20,
+                endRadius: 380
+            )
         }
         .ignoresSafeArea()
     }
@@ -56,13 +145,13 @@ struct AppCard<Content: View>: View {
     var body: some View {
         content
             .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .fill(AppTheme.surface)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(AppTheme.stroke.opacity(0.6), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(AppTheme.stroke, lineWidth: 1)
                     )
-                    .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 6)
+                    .shadow(color: AppTheme.cardShadow, radius: 20, x: 0, y: 12)
             )
     }
 }
@@ -84,7 +173,7 @@ struct AppTag: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
-        .background(tint.opacity(0.15))
+        .background(tint.opacity(0.12))
         .foregroundColor(tint)
         .cornerRadius(999)
     }
@@ -100,7 +189,7 @@ struct AppPrimaryButtonStyle: ButtonStyle {
             .background(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(AppTheme.badgeGradient)
-                    .shadow(color: AppTheme.accent.opacity(0.18), radius: 10, x: 0, y: 6)
+                    .shadow(color: AppTheme.accent.opacity(0.22), radius: 12, x: 0, y: 8)
             )
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
     }
