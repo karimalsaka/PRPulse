@@ -8,6 +8,7 @@ final class TokenManager {
 
     func saveToken(_ token: String) -> Bool {
         UserDefaults.standard.set(token, forKey: key)
+        NotificationPreferences.baselineEstablished = false
         return true
     }
 
@@ -18,6 +19,7 @@ final class TokenManager {
     @discardableResult
     func deleteToken() -> Bool {
         UserDefaults.standard.removeObject(forKey: key)
+        NotificationPreferences.baselineEstablished = false
         return true
     }
 

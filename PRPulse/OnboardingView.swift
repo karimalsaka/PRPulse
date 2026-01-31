@@ -2,8 +2,12 @@ import SwiftUI
 
 struct OnboardingView: View {
     @StateObject private var viewModel = OnboardingViewModel()
-    @Environment(\.dismiss) private var dismiss
     @Namespace private var stepNamespace
+    let onComplete: () -> Void
+
+    init(onComplete: @escaping () -> Void = {}) {
+        self.onComplete = onComplete
+    }
 
     var body: some View {
         ZStack {
@@ -443,7 +447,7 @@ struct OnboardingView: View {
             if result.allPermissionsGranted {
                 Button("Complete Setup") {
                     viewModel.saveTokenAndComplete()
-                    dismiss()
+                    onComplete()
                 }
                 .keyboardShortcut(.defaultAction)
                 .buttonStyle(AppPrimaryButtonStyle())
@@ -456,7 +460,7 @@ struct OnboardingView: View {
 
                     Button("Continue Anyway") {
                         viewModel.continueWithLimitedPermissions()
-                        dismiss()
+                        onComplete()
                     }
                     .buttonStyle(AppPrimaryButtonStyle())
                     .keyboardShortcut(.defaultAction)

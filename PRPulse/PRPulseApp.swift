@@ -4,23 +4,41 @@ import SwiftUI
 struct PRPulseApp: App {
     @StateObject private var service = GitHubService()
     @State private var showingTokenSheet = false
+    @State private var hasToken = TokenManager.shared.hasToken
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
+    init() {
+        NotificationManager.shared.configure()
+        if NotificationPreferences.notifyComments || NotificationPreferences.notifyReviews {
+            NotificationManager.shared.requestAuthorizationIfNeeded()
+        }
+    }
 
     var body: some Scene {
         MenuBarExtra {
-            PRListView(service: service, showingTokenSheet: $showingTokenSheet)
-                .onAppear {
-                    if TokenManager.shared.hasToken {
-                        service.startPolling()
-                    } else {
-                        showSettingsWindow(showOnboarding: true)
+            Group {
+                if hasToken {
+                    PRListView(service: service, showingTokenSheet: $showingTokenSheet)
+                } else {
+                    SetupRequiredView {
+                        showingTokenSheet = true
                     }
                 }
-                .onChange(of: showingTokenSheet) { newValue in
-                    if newValue {
-                        showSettingsWindow(showOnboarding: false)
-                        showingTokenSheet = false
-                    }
+            }
+            .onAppear {
+                hasToken = TokenManager.shared.hasToken
+                if hasToken {
+                    service.startPolling()
+                } else {
+                    showSettingsWindow(showOnboarding: true)
                 }
+            }
+            .onChange(of: showingTokenSheet) { newValue in
+                if newValue {
+                    showSettingsWindow(showOnboarding: false)
+                    showingTokenSheet = false
+                }
+            }
         } label: {
             MenuBarIcon(health: service.overallHealth, count: service.pullRequests.count)
         }
@@ -30,6 +48,7 @@ struct PRPulseApp: App {
     private func showSettingsWindow(showOnboarding: Bool) {
         let service = self.service
         SettingsWindowController.shared.show(showOnboarding: showOnboarding) {
+            self.hasToken = TokenManager.shared.hasToken
             service.startPolling()
         }
     }
@@ -46,16 +65,16 @@ class SettingsWindowController {
             return
         }
 
+        let shouldShowOnboarding = showOnboarding || !TokenManager.shared.hasToken
         let view: AnyView
-        if showOnboarding || !TokenManager.shared.hasToken {
+        if shouldShowOnboarding {
             view = AnyView(
-                OnboardingView()
-                    .onDisappear {
-                        onSave()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-                            self?.window?.close()
-                        }
+                OnboardingView(onComplete: {
+                    onSave()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                        self?.window?.close()
                     }
+                })
             )
         } else {
             view = AnyView(
@@ -71,12 +90,19 @@ class SettingsWindowController {
         let hostingView = NSHostingView(rootView: view)
         hostingView.frame = NSRect(x: 0, y: 0, width: 600, height: 700)
 
+        let styleMask: NSWindow.StyleMask = shouldShowOnboarding ? [.titled, .fullSizeContentView] : [.titled, .closable]
         let w = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 600, height: 700),
-            styleMask: [.titled, .closable],
+            styleMask: styleMask,
             backing: .buffered,
             defer: false
         )
+        if shouldShowOnboarding {
+            w.isMovableByWindowBackground = true
+            w.standardWindowButton(.closeButton)?.isHidden = true
+            w.standardWindowButton(.miniaturizeButton)?.isHidden = true
+            w.standardWindowButton(.zoomButton)?.isHidden = true
+        }
         w.title = "PRPulse Setup"
         w.contentView = hostingView
         w.center()
@@ -117,6 +143,36 @@ struct MenuBarIcon: View {
         case .failure: return AppTheme.danger
         case .pending: return AppTheme.warning
         case .unknown: return .primary
+        }
+    }
+}
+
+private struct SetupRequiredView: View {
+    let onOpenSetup: () -> Void
+
+    var body: some View {
+        ZStack {
+            AppBackground()
+            VStack(spacing: 12) {
+                Text("Finish setup to view PRs")
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                Button("Open Setup") {
+                    onOpenSetup()
+                }
+                .buttonStyle(AppPrimaryButtonStyle())
+            }
+            .padding(20)
+        }
+        .frame(width: 320, height: 180)
+        .background(AppTheme.canvas)
+    }
+}
+
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        let hasToken = TokenManager.shared.hasToken
+        DispatchQueue.main.async {
+            SettingsWindowController.shared.show(showOnboarding: !hasToken) {}
         }
     }
 }

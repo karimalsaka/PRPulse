@@ -105,6 +105,7 @@ final class OnboardingViewModel: ObservableObject {
 
         let trimmedToken = tokenInput.trimmingCharacters(in: .whitespaces)
         _ = tokenManager.saveToken(trimmedToken)
+        NotificationManager.shared.requestAuthorizationIfNeeded()
     }
 
     func continueWithLimitedPermissions() {

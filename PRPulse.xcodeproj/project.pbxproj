@@ -24,6 +24,8 @@
 		A1000004 /* PRListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000004 /* PRListView.swift */; };
 		A1000005 /* TokenManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000005 /* TokenManager.swift */; };
 		A1000006 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A2000006 /* Assets.xcassets */; };
+		A1000007 /* NotificationPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000010 /* NotificationPreferences.swift */; };
+		A1000008 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000011 /* NotificationManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -47,6 +49,8 @@
 		A2000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A2000008 /* PRPulse.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PRPulse.entitlements; sourceTree = "<group>"; };
 		A2000009 /* PRPulse.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PRPulse.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A2000010 /* NotificationPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPreferences.swift; sourceTree = "<group>"; };
+		A2000011 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -87,6 +91,8 @@
 				A2000003 /* Models.swift */,
 				A2000004 /* PRListView.swift */,
 				A2000005 /* TokenManager.swift */,
+				A2000010 /* NotificationPreferences.swift */,
+				A2000011 /* NotificationManager.swift */,
 				A2000006 /* Assets.xcassets */,
 				A2000007 /* Info.plist */,
 				A2000008 /* PRPulse.entitlements */,
@@ -187,6 +193,8 @@
 				99D0D2202F296D1000BB6A81 /* SettingsViewModel.swift in Sources */,
 				A1000004 /* PRListView.swift in Sources */,
 				A1000005 /* TokenManager.swift in Sources */,
+				A1000007 /* NotificationPreferences.swift in Sources */,
+				A1000008 /* NotificationManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

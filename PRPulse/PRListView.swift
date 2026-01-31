@@ -247,6 +247,7 @@ struct PRRowView: View {
     @State private var isHovered = false
     @State private var isCommentsHovered = false
     @State private var showComments = false
+    private var displayCommentCount: Int { pr.recentComments.count }
 
     var body: some View {
         let cornerRadius: CGFloat = 18
@@ -335,11 +336,11 @@ struct PRRowView: View {
                             }
 
                             // Comments — only show if we have permission
-                            if permissionsState.canReadComments && pr.commentCount > 0 {
+                            if permissionsState.canReadComments && displayCommentCount > 0 {
                                 HStack(spacing: 4) {
                                     Image(systemName: "bubble.left.fill")
                                         .font(.system(size: 9))
-                                    Text("\(pr.commentCount)")
+                                    Text("\(displayCommentCount)")
                                         .font(.caption2)
                                         .fontWeight(.medium)
                                 }
@@ -371,7 +372,7 @@ struct PRRowView: View {
                     .allowsHitTesting(false)
 
                     // Comments — only show if we have permission
-                    if permissionsState.canReadComments && pr.commentCount > 0 {
+                    if permissionsState.canReadComments && displayCommentCount > 0 {
                         VStack(alignment: .leading, spacing: 10) {
                             HStack(spacing: 10) {
                                 Image(systemName: showComments ? "chevron.down.circle.fill" : "chevron.right.circle.fill")
@@ -386,7 +387,7 @@ struct PRRowView: View {
                                         .foregroundColor(.secondary)
                                 }
                                 Spacer()
-                                Text("\(pr.commentCount)")
+                                Text("\(displayCommentCount)")
                                     .font(.system(size: 10, weight: .bold, design: .rounded))
                                     .foregroundColor(showComments ? .white : AppTheme.accent)
                                     .padding(.horizontal, 6)
@@ -426,7 +427,7 @@ struct PRRowView: View {
                                 }
                             }
 
-                            if showComments && !pr.recentComments.isEmpty {
+                            if showComments {
                                 VStack(alignment: .leading, spacing: 8) {
                                     ForEach(pr.recentComments) { comment in
                                         HStack(alignment: .top, spacing: 8) {
@@ -450,7 +451,7 @@ struct PRRowView: View {
                                             }
                                             Spacer(minLength: 0)
                                         }
-                                        .padding(.horizontal, 12)
+                                        .padding(.horizontal, 12) 
                                         .padding(.vertical, 10)
                                         .background(AppTheme.surface)
                                         .cornerRadius(12)

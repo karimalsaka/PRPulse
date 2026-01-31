@@ -9,6 +9,7 @@ final class GitHubService: ObservableObject {
     @Published var activeFilter: PRFilter = .all
     @Published var useMockData = false
     @Published var permissionsState = PermissionsState()
+    @Published var currentUserLogin: String?
 
     var filteredPullRequests: [PullRequest] {
         return pullRequests(for: activeFilter)
@@ -31,6 +32,16 @@ final class GitHubService: ObservableObject {
     private let pollInterval: TimeInterval = 300
     private let graphQLURL = URL(string: "https://api.github.com/graphql")!
     private let decoder = JSONDecoder()
+    private static let isoFormatterWithFractional: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+    private static let isoFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
 
     var lastUpdatedLabel: String {
         guard let date = lastUpdated else { return "" }
@@ -87,10 +98,12 @@ final class GitHubService: ObservableObject {
 
         Task {
             do {
-                let prs = try await fetchAllPRs(token: token)
-                self.pullRequests = prs
+                let result = try await fetchAllPRs(token: token)
+                self.pullRequests = result.pullRequests
+                self.currentUserLogin = result.viewerLogin
                 self.lastUpdated = Date()
                 self.isLoading = false
+                NotificationManager.shared.processUpdates(pullRequests: result.pullRequests, currentUserLogin: result.viewerLogin)
             } catch {
                 self.errorMessage = error.localizedDescription
                 self.isLoading = false
@@ -100,10 +113,11 @@ final class GitHubService: ObservableObject {
 
     // MARK: - Single GraphQL Query
 
-    private func fetchAllPRs(token: String) async throws -> [PullRequest] {
+    private func fetchAllPRs(token: String) async throws -> (pullRequests: [PullRequest], viewerLogin: String?) {
         let query = """
         {
           viewer {
+            login
             pullRequests(first: 50, states: OPEN, orderBy: {field: UPDATED_AT, direction: DESC}) {
               nodes {
                 id
@@ -142,7 +156,9 @@ final class GitHubService: ObservableObject {
                 }
                 reviews(last: 20) {
                   nodes {
+                    id
                     state
+                    createdAt
                     author {
                       login
                     }
@@ -185,6 +201,7 @@ final class GitHubService: ObservableObject {
               let nodes = pullRequests["nodes"] as? [[String: Any]] else {
             throw NSError(domain: "GitHub", code: 0, userInfo: [NSLocalizedDescriptionKey: "Unexpected GraphQL response"])
         }
+        let viewerLogin = viewer["login"] as? String
         var results: [PullRequest] = []
         for node in nodes {
             guard let number = node["number"] as? Int,
@@ -263,15 +280,12 @@ final class GitHubService: ObservableObject {
             }
 
             // Parse comments (hide selected bots)
-            let hiddenBotNames = Set(["tuist", "greplite", "greptile-apps", "github-actions"])
+            let hiddenBotNames = Set(["tuist", "greplite", "greptile-apps", "github-actions", "[bot]"])
             var recentComments: [PRComment] = []
             var commentCount = 0
             if let comments = node["comments"] as? [String: Any] {
                 commentCount = comments["totalCount"] as? Int ?? 0
                 if let commentNodes = comments["nodes"] as? [[String: Any]] {
-                    let formatter = ISO8601DateFormatter()
-                    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-
                     recentComments = commentNodes.compactMap { c -> PRComment? in
                         guard let author = c["author"] as? [String: Any],
                               let login = author["login"] as? String,
@@ -284,11 +298,12 @@ final class GitHubService: ObservableObject {
                         }
 
                         let id = c["id"] as? String ?? UUID().uuidString
+                        guard let createdAt = parseDate(dateStr) else { return nil }
                         return PRComment(
                             id: id,
                             author: login,
                             body: body,
-                            createdAt: formatter.date(from: dateStr) ?? Date()
+                            createdAt: createdAt
                         )
                     }
                 }
@@ -296,9 +311,6 @@ final class GitHubService: ObservableObject {
 
             if let reviewThreads = node["reviewThreads"] as? [String: Any],
                let threadNodes = reviewThreads["nodes"] as? [[String: Any]] {
-                let formatter = ISO8601DateFormatter()
-                formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-
                 for thread in threadNodes {
                     guard let comments = thread["comments"] as? [String: Any],
                           let commentNodes = comments["nodes"] as? [[String: Any]] else { continue }
@@ -315,11 +327,12 @@ final class GitHubService: ObservableObject {
                         }
 
                         let id = c["id"] as? String ?? UUID().uuidString
+                        guard let createdAt = parseDate(dateStr) else { return nil }
                         return PRComment(
                             id: id,
                             author: login,
                             body: body,
-                            createdAt: formatter.date(from: dateStr) ?? Date()
+                            createdAt: createdAt
                         )
                     }
                     recentComments.append(contentsOf: parsed)
@@ -327,6 +340,27 @@ final class GitHubService: ObservableObject {
             }
 
             recentComments.sort { $0.createdAt > $1.createdAt }
+            var recentReviews: [PRReview] = []
+            if let reviews = node["reviews"] as? [String: Any],
+               let reviewNodes = reviews["nodes"] as? [[String: Any]] {
+                for review in reviewNodes {
+                    let state = review["state"] as? String ?? ""
+                    if state == "COMMENTED" { continue }
+                    guard let author = review["author"] as? [String: Any],
+                          let login = author["login"] as? String else { continue }
+
+                    let loginLower = login.lowercased()
+                    if hiddenBotNames.contains(where: { loginLower.contains($0) }) {
+                        continue
+                    }
+
+                    let id = review["id"] as? String ?? UUID().uuidString
+                    let dateStr = review["createdAt"] as? String ?? ""
+                    guard let createdAt = parseDate(dateStr) else { continue }
+                    recentReviews.append(PRReview(id: id, author: login, state: state, createdAt: createdAt))
+                }
+            }
+            recentReviews.sort { $0.createdAt > $1.createdAt }
 
             results.append(PullRequest(
                 id: number,
@@ -335,16 +369,17 @@ final class GitHubService: ObservableObject {
                 repoFullName: repoFullName,
                 htmlURL: url,
                 headSHA: "",
-                commentCount: recentComments.count,
+                commentCount: commentCount,
                 isDraft: isDraft,
                 ciStatus: ciStatus,
                 failedChecks: failedChecks,
                 reviewState: reviewState,
                 hasConflicts: hasConflicts,
+                recentReviews: recentReviews,
                 recentComments: recentComments
             ))
         }
-        return results
+        return (pullRequests: results, viewerLogin: viewerLogin)
     }
 
     private func performGraphQLRequest(token: String, query: String) async throws -> [String: Any] {
@@ -375,6 +410,13 @@ final class GitHubService: ObservableObject {
             throw NSError(domain: "GitHub", code: 0, userInfo: [NSLocalizedDescriptionKey: msg])
         }
         return dataObj
+    }
+
+    private func parseDate(_ dateString: String) -> Date? {
+        if let date = Self.isoFormatterWithFractional.date(from: dateString) {
+            return date
+        }
+        return Self.isoFormatter.date(from: dateString)
     }
 
     // MARK: - Mock Data

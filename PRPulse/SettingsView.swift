@@ -3,6 +3,10 @@ import SwiftUI
 struct SettingsView: View {
     @StateObject private var viewModel = SettingsViewModel()
     let onSave: () -> Void
+    @AppStorage(NotificationPreferences.Keys.notifyComments) private var notifyComments = false
+    @AppStorage(NotificationPreferences.Keys.notifyReviews) private var notifyReviews = false
+    @State private var notificationStatus: String = "Unknown"
+    @State private var notificationStyle: String = "Unknown"
 
     var body: some View {
         ZStack {
@@ -17,6 +21,7 @@ struct SettingsView: View {
                             AppCard {
                                 VStack(alignment: .leading, spacing: 20) {
                                     tokenSection
+                                    notificationsSection
 
                                     if let result = viewModel.validationResult {
                                         PermissionChecklistView(validationResult: result)
@@ -121,6 +126,81 @@ struct SettingsView: View {
                 Text("Validate to preview permissions before saving.")
                     .font(.caption)
                     .foregroundColor(.secondary)
+            }
+        }
+    }
+
+    private var notificationsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Notifications")
+                .font(.headline)
+
+            Toggle("New comments", isOn: $notifyComments)
+                .toggleStyle(.switch)
+                .onChange(of: notifyComments) { newValue in
+                    if newValue {
+                        NotificationManager.shared.requestAuthorizationIfNeeded()
+                        refreshNotificationStatus()
+                    }
+                }
+
+            Toggle("New reviews", isOn: $notifyReviews)
+                .toggleStyle(.switch)
+                .onChange(of: notifyReviews) { newValue in
+                    if newValue {
+                        NotificationManager.shared.requestAuthorizationIfNeeded()
+                        refreshNotificationStatus()
+                    }
+                }
+
+            HStack(spacing: 6) {
+                Text("Status: \(notificationStatus) · Style: \(notificationStyle)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Button("Open Notification Settings") {
+                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.notifications") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+                .buttonStyle(.link)
+            }
+
+            Text("Only non-bot, non-self activity is notified.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+#if DEBUG
+            Button("Send Test Notification (3s)") {
+                NotificationManager.shared.requestAuthorizationIfNeeded()
+                NotificationManager.shared.scheduleTestNotification()
+                refreshNotificationStatus()
+            }
+            .buttonStyle(AppSoftButtonStyle(tint: AppTheme.info))
+#endif
+        }
+        .onAppear {
+            refreshNotificationStatus()
+        }
+    }
+
+    private func refreshNotificationStatus() {
+        NotificationManager.shared.fetchNotificationSettings { settings in
+            DispatchQueue.main.async {
+                switch settings.authorizationStatus {
+                case .authorized: notificationStatus = "Authorized"
+                case .denied: notificationStatus = "Denied"
+                case .notDetermined: notificationStatus = "Not Determined"
+                case .provisional: notificationStatus = "Provisional"
+                case .ephemeral: notificationStatus = "Ephemeral"
+                @unknown default: notificationStatus = "Unknown"
+                }
+
+                switch settings.alertStyle {
+                case .none: notificationStyle = "None"
+                case .banner: notificationStyle = "Banner"
+                case .alert: notificationStyle = "Alert"
+                @unknown default: notificationStyle = "Unknown"
+                }
             }
         }
     }

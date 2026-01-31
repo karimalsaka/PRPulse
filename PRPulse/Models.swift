@@ -89,6 +89,7 @@ struct PullRequest: Identifiable, Equatable {
     var reviewState: ReviewState = .unknown
     var isMergeable: Bool? = nil
     var hasConflicts: Bool = false
+    var recentReviews: [PRReview] = []
     var recentComments: [PRComment] = []
     var isRequestedReviewer: Bool = false
     var isReviewedByMe: Bool = false
@@ -201,6 +202,23 @@ struct PRComment: Identifiable, Equatable {
             return String(trimmed.prefix(100)) + "…"
         }
         return trimmed
+    }
+}
+
+struct PRReview: Identifiable, Equatable {
+    let id: String
+    let author: String
+    let state: String
+    let createdAt: Date
+
+    var label: String {
+        switch state {
+        case "APPROVED": return "Approved"
+        case "CHANGES_REQUESTED": return "Changes Requested"
+        case "DISMISSED": return "Dismissed"
+        case "PENDING": return "Pending"
+        default: return "Review"
+        }
     }
 }
 
