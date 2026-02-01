@@ -29,6 +29,10 @@ enum AppTheme {
         light: NSColor(calibratedRed: 0.36, green: 0.52, blue: 0.86, alpha: 1),
         dark: NSColor(calibratedRed: 0.46, green: 0.60, blue: 0.92, alpha: 1)
     )
+    static let textPrimary = dynamic(
+        light: NSColor(calibratedWhite: 0.08, alpha: 1),
+        dark: NSColor(calibratedWhite: 0.75, alpha: 1)
+    )
 
     static let accentSoft = accent.opacity(0.14)
     static let successSoft = success.opacity(0.12)
@@ -38,11 +42,11 @@ enum AppTheme {
 
     static let canvas = dynamic(
         light: NSColor(calibratedWhite: 1.0, alpha: 1),
-        dark: NSColor(calibratedWhite: 0.08, alpha: 1)
+        dark: NSColor(calibratedWhite: 0.1, alpha: 1)
     )
     static let surface = dynamic(
         light: NSColor(calibratedWhite: 0.98, alpha: 1),
-        dark: NSColor(calibratedWhite: 0.12, alpha: 1)
+        dark: NSColor(calibratedWhite: 0.12, alpha: 0.7)
     )
     static let elevatedSurface = dynamic(
         light: NSColor(calibratedWhite: 0.99, alpha: 1),
@@ -146,12 +150,12 @@ struct AppPrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 13, weight: .semibold))
-            .foregroundColor(.white)
+            .foregroundColor(Color.white)
             .padding(.horizontal, 18)
             .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(AppTheme.accent)
+                    .fill(AppTheme.accent.opacity(0.7))
             )
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
     }
@@ -161,7 +165,7 @@ struct AppPrimaryButtonStrongStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 13, weight: .semibold))
-            .foregroundColor(.white)
+            .foregroundColor(Color.white.opacity(0.9))
             .padding(.horizontal, 18)
             .padding(.vertical, 10)
             .background(

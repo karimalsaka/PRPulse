@@ -25,12 +25,11 @@ struct OnboardingView: View {
 
                 Divider()
 
-                // Navigation Footer
                 navigationFooter
                     .padding(20)
             }
         }
-        .frame(width: 720, height: 840)
+        .frame(width: 840, height: 980)
         .background(AppTheme.canvas)
         .animation(.easeInOut(duration: 0.35), value: viewModel.currentStep)
         .alert("Error", isPresented: $viewModel.showError) {
@@ -124,36 +123,24 @@ struct OnboardingView: View {
 
     private var welcomeStep: some View {
         OnboardingStepView(
-            title: "Meet blnk",
-            subtitle: "A calm pulse for your pull requests"
+            title: "Welcome to blnk",
+            subtitle: "Monitor your GitHub pull requests from your menu bar"
         ) {
             VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 12) {
+                    OnboardingBulletItem(text: "Spot reviews that need your attention fast")
+                    OnboardingBulletItem(text: "Track build checks without opening GitHub")
+                    OnboardingBulletItem(text: "Filter by attention, approved, or drafts")
+                }
+                .padding(.leading, 4)
+
                 OnboardingPreviewSection(
                     title: "Your PR workspace",
                     subtitle: "A quick peek at the live list you’ll get"
                 ) {
                     previewCard
                 }
-
-                VStack(alignment: .leading, spacing: 12) {
-                    BulletPointView(text: "Spot reviews that need your attention fast")
-                    BulletPointView(text: "Track build checks without opening GitHub")
-                    BulletPointView(text: "Filter by attention, approved, or drafts")
-                }
-                .padding(.leading, 4)
-
-                Spacer()
-                    .frame(height: 12)
-
-                Text("Private by default. Talks directly to GitHub.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(AppTheme.successSoft)
-                    )
+                .padding(.bottom, 12)
             }
         }
     }
@@ -165,97 +152,60 @@ struct OnboardingView: View {
             title: "Connect GitHub",
             subtitle: "Create a Personal Access Token and paste it next"
         ) {
-            VStack(alignment: .leading, spacing: 20) {
-                // Token Type Selection
-                tokenTypeSection
-
-                Divider()
-
-                // Classic PAT Instructions
-                classicPATInstructions
-
-                Divider()
-
-                // Fine-grained PAT Instructions
+            VStack(alignment: .leading, spacing: 16) {
+                permissionsInline
                 fineGrainedPATInstructions
+                classicPATInstructions
             }
         }
     }
 
-    private var tokenTypeSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Choose a token type")
-                .font(.headline)
-
-            Text("Fine-grained keeps access tight. Classic is faster but broader.")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-
-            HStack(spacing: 16) {
-                tokenTypeCard(
-                    title: "Fine-grained (Recommended)",
-                    description: "More secure with specific repository access",
-                    color: .green,
-                    action: viewModel.openGitHubFineGrainedTokenSettings
-                )
-
-                tokenTypeCard(
-                    title: "Classic",
-                    description: "Simple but broader access scope",
-                    color: .orange,
-                    action: viewModel.openGitHubTokenSettings
-                )
+    private var permissionsInline: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "lock.shield.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(AppTheme.accent)
+                Text("Permissions required to use blnk")
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundColor(AppTheme.textPrimary)
+                Spacer()
             }
-        }
-    }
 
-    private func tokenTypeCard(title: String, description: String, color: Color, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    RoundedRectangle(cornerRadius: 2, style: .continuous)
-                        .fill(color)
-                        .frame(width: 20, height: 4)
-                    Spacer()
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    AppTag(text: "Required", icon: nil, tint: AppTheme.accent)
+                    Text("Pull requests, Reviews, Comments (read-only)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
 
-                Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.primary)
-
-                Text(description)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    AppTag(text: "Optional", icon: nil, tint: .secondary)
+                    Text("Commit statuses (read-only)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(AppTheme.surface)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(color.opacity(0.4), lineWidth: 1)
-                    )
-            )
-            .shadow(color: color.opacity(0.12), radius: 8, x: 0, y: 6)
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(AppTheme.accentSoft.opacity(0.5))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(AppTheme.stroke, lineWidth: 1)
+                )
+        )
     }
 
     private var classicPATInstructions: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Classic (quickest)")
-                    .font(.headline)
-                Spacer()
-                Button("Open GitHub") {
-                    viewModel.openGitHubTokenSettings()
-                }
-                .buttonStyle(.link)
-            }
-
+        OnboardingInstructionCard(
+            title: "Classic (quickest)",
+            subtitle: "Broad scope, one checkbox",
+            action: viewModel.openGitHubTokenSettings
+        ) {
             VStack(alignment: .leading, spacing: 8) {
                 InstructionStepView(number: 1, text: "Open Tokens (classic) in GitHub settings")
                 InstructionStepView(number: 2, text: "Generate a token named 'blnk' with the repo scope")
@@ -265,17 +215,13 @@ struct OnboardingView: View {
     }
 
     private var fineGrainedPATInstructions: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Fine-grained (recommended)")
-                    .font(.headline)
-                Spacer()
-                Button("Open GitHub") {
-                    viewModel.openGitHubFineGrainedTokenSettings()
-                }
-                .buttonStyle(.link)
-            }
-
+        OnboardingInstructionCard(
+            title: "Fine-grained (recommended)",
+            subtitle: "Scoped access with repo selection",
+            tagText: "Recommended",
+            tagTint: AppTheme.success,
+            action: viewModel.openGitHubFineGrainedTokenSettings
+        ) {
             VStack(alignment: .leading, spacing: 8) {
                 InstructionStepView(number: 1, text: "Open Fine-grained tokens in GitHub settings")
                 InstructionStepView(number: 2, text: "Generate a token named 'blnk' and choose repos")
@@ -341,12 +287,24 @@ struct OnboardingView: View {
 
     private var limitedFunctionalityExplanation: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Still good to go")
-                .font(.headline)
-
-            Text("Missing permissions only hide specific details:")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+            HStack(spacing: 10) {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(AppTheme.warningSoft)
+                    .frame(width: 28, height: 28)
+                    .overlay(
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(AppTheme.warning)
+                    )
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("You’re still set")
+                        .font(.headline)
+                    Text("Some details will be hidden until permissions are added.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             if viewModel.validationResult?.canReadCommitStatuses.status != .granted {
                 FeatureLimitationView(
@@ -356,9 +314,14 @@ struct OnboardingView: View {
             }
         }
         .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(AppTheme.warningSoft)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(AppTheme.elevatedSurface)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(AppTheme.stroke, lineWidth: 1)
+                )
         )
     }
 
@@ -471,10 +434,11 @@ extension OnboardingView {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 4) {
+                    Text("Everything you need, before you blink")
+                        .font(.system(size: 14, weight: .semibold))
+                    
                     Text("Pull Requests")
-                        .font(.system(size: 17, weight: .semibold))
-                    Text("A quiet pulse for your PRs")
-                        .font(.system(size: 11, weight: .regular))
+                        .font(.system(size: 11, weight: .medium))
                         .foregroundColor(.secondary)
                 }
 
@@ -825,17 +789,19 @@ struct InstructionStepView: View {
     let text: String
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(AppTheme.accentSoft)
-                    .frame(width: 24, height: 24)
-                Text("\(number)")
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundColor(AppTheme.accent)
-            }
-            .frame(width: 24)
+        HStack(alignment: .center, spacing: 10) {
+            Text("\(number)")
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .foregroundColor(AppTheme.accent)
+                .frame(width: 24, height: 24, alignment: .center)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(AppTheme.accentSoft)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(AppTheme.stroke, lineWidth: 1)
+                        )
+                )
 
             Text(text)
                 .font(.system(size: 13, weight: .regular, design: .rounded))
@@ -876,7 +842,7 @@ struct FeatureLimitationView: View {
             RoundedRectangle(cornerRadius: 2, style: .continuous)
                 .fill(AppTheme.warning)
                 .frame(width: 10, height: 10)
-
+                .frame(width: 28, alignment: .center)
             VStack(alignment: .leading, spacing: 2) {
                 Text(feature)
                     .font(.subheadline)
@@ -886,6 +852,7 @@ struct FeatureLimitationView: View {
                     .foregroundColor(.secondary)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

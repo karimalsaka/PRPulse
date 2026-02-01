@@ -9,14 +9,13 @@ struct PRListView: View {
             AppBackground()
 
             VStack(alignment: .leading, spacing: 12) {
-                // Header
                 HStack(alignment: .center) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Pull Requests")
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Everything you need, before you blink")
                             .padding(.top, 10)
-                            .font(.system(size: 19, weight: .semibold))
-                        Text("A quiet pulse for your PRs")
-                            .font(.system(size: 11, weight: .regular))
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("Pull Requests")
+                            .font(.system(size: 11, weight: .medium))
                             .foregroundColor(.secondary)
                     }
 

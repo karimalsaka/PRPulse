@@ -199,17 +199,18 @@ struct PRRowView: View {
                                     }
                                 }
 
-                                if showComments {
-                                    VStack(alignment: .leading, spacing: 8) {
-                                        ForEach(discussionComments) { comment in
-                                            CommentRow(
-                                                comment: comment,
-                                                isSelf: isSelfComment(comment),
-                                                showReply: comment.id == discussionComments.last?.id && !isSelfComment(comment),
-                                                replyURL: comment.url
-                                            )
+                                    if showComments {
+                                        let replyTargetId = discussionComments.last?.id
+                                        VStack(alignment: .leading, spacing: 8) {
+                                            ForEach(discussionComments) { comment in
+                                                CommentRow(
+                                                    comment: comment,
+                                                    isSelf: isSelfComment(comment),
+                                                    showReply: comment.id == replyTargetId && !isSelfComment(comment),
+                                                    replyURL: comment.url
+                                                )
+                                            }
                                         }
-                                    }
                                     .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
                                 }
                             }
@@ -340,6 +341,7 @@ struct PRRowView: View {
         let sortedComments = thread.comments.sorted(by: { $0.createdAt < $1.createdAt })
         let starter = sortedComments.first
         let latest = sortedComments.last
+        let replyTargetId = latest?.id
         let starterLabel = starter.map { isSelfComment($0) ? "You started a thread" : "\($0.author) started a thread" } ?? "Thread"
         let latestLabel: String = {
             guard let latest = latest else { return "" }
@@ -367,7 +369,7 @@ struct PRRowView: View {
                     CommentRow(
                         comment: comment,
                         isSelf: isSelfComment(comment),
-                        showReply: comment.id == latest?.id && !isSelfComment(comment),
+                        showReply: comment.id == replyTargetId && !isSelfComment(comment),
                         replyURL: comment.url
                     )
                         .padding(.leading, 6)

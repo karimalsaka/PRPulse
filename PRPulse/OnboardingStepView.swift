@@ -3,30 +3,21 @@ import SwiftUI
 struct OnboardingStepView<Content: View>: View {
     let title: String
     let subtitle: String?
-    let iconName: String
-    let iconColor: Color
     let content: Content
 
     init(
         title: String,
         subtitle: String? = nil,
-        iconName: String,
-        iconColor: Color = .blue,
         @ViewBuilder content: () -> Content
     ) {
         self.title = title
         self.subtitle = subtitle
-        self.iconName = iconName
-        self.iconColor = iconColor
         self.content = content()
     }
 
     var body: some View {
         AppCard {
             VStack(spacing: 24) {
-                // Icon Header
-                iconHeader
-
                 // Title and Subtitle
                 headerText
 
@@ -35,24 +26,6 @@ struct OnboardingStepView<Content: View>: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(32)
-        }
-    }
-
-    // MARK: - Icon Header
-
-    private var iconHeader: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(AppTheme.badgeGradient.opacity(0.2))
-                .frame(width: 92, height: 92)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(AppTheme.stroke.opacity(0.6), lineWidth: 1)
-                )
-
-            Image(systemName: iconName)
-                .font(.system(size: 30, weight: .semibold, design: .rounded))
-                .foregroundColor(iconColor)
         }
     }
 
@@ -80,13 +53,11 @@ struct OnboardingStepView<Content: View>: View {
 
 #Preview {
     OnboardingStepView(
-        title: "Welcome to PRPulse",
-        subtitle: "Monitor your GitHub pull requests from your menu bar",
-        iconName: "bolt.circle.fill",
-        iconColor: .blue
+        title: "Welcome to blnk",
+        subtitle: "Monitor your GitHub pull requests from your menu bar"
     ) {
         VStack(alignment: .leading, spacing: 12) {
-            Text("PRPulse helps you stay on top of your pull requests with:")
+            Text("blnk helps you stay on top of your pull requests with:")
                 .font(.subheadline)
 
             BulletPointView(text: "Real-time status updates")
@@ -102,20 +73,9 @@ struct OnboardingStepView<Content: View>: View {
 
 struct BulletPointView: View {
     let text: String
-    let iconName: String
-
-    init(text: String, iconName: String = "checkmark.circle.fill") {
-        self.text = text
-        self.iconName = iconName
-    }
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: iconName)
-                .foregroundColor(AppTheme.success)
-                .font(.system(size: 12, weight: .semibold))
-                .frame(width: 16)
-
             Text(text)
                 .font(.system(size: 13, weight: .regular, design: .rounded))
                 .foregroundColor(.secondary)

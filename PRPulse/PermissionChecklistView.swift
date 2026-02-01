@@ -9,13 +9,13 @@ struct PermissionChecklistView: View {
             permissionsList
             summarySection
         }
-        .padding(20)
+        .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(AppTheme.surface)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(AppTheme.elevatedSurface)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(AppTheme.stroke.opacity(0.6), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(AppTheme.stroke, lineWidth: 1)
                 )
         )
     }
@@ -52,18 +52,7 @@ struct PermissionChecklistView: View {
 
     private var summarySection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if !validationResult.allPermissionsGranted && validationResult.hasMinimumPermissions {
-                HStack(spacing: 8) {
-                    Image(systemName: "info.circle.fill")
-                        .foregroundColor(AppTheme.accent)
-                    Text("PRPulse will work — the missing permission only hides related info")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .padding(12)
-                .background(AppTheme.accentSoft)
-                .cornerRadius(10)
-            } else if !validationResult.hasMinimumPermissions {
+            if !validationResult.hasMinimumPermissions {
                 HStack(spacing: 8) {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundColor(AppTheme.danger)
