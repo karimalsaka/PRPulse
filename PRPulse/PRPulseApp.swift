@@ -8,10 +8,6 @@ struct PRPulseApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     init() {
-        NotificationManager.shared.configure()
-        if NotificationPreferences.notifyComments || NotificationPreferences.notifyReviews {
-            NotificationManager.shared.requestAuthorizationIfNeeded()
-        }
     }
 
     var body: some Scene {
@@ -87,12 +83,16 @@ class SettingsWindowController {
             )
         }
 
+        let onboardingSize = NSSize(width: 720, height: 840)
+        let settingsSize = NSSize(width: 600, height: 700)
+        let windowSize = shouldShowOnboarding ? onboardingSize : settingsSize
+
         let hostingView = NSHostingView(rootView: view)
-        hostingView.frame = NSRect(x: 0, y: 0, width: 600, height: 700)
+        hostingView.frame = NSRect(origin: .zero, size: windowSize)
 
         let styleMask: NSWindow.StyleMask = shouldShowOnboarding ? [.titled, .fullSizeContentView] : [.titled, .closable]
         let w = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 600, height: 700),
+            contentRect: NSRect(origin: .zero, size: windowSize),
             styleMask: styleMask,
             backing: .buffered,
             defer: false
@@ -103,7 +103,7 @@ class SettingsWindowController {
             w.standardWindowButton(.miniaturizeButton)?.isHidden = true
             w.standardWindowButton(.zoomButton)?.isHidden = true
         }
-        w.title = "PRPulse Setup"
+        w.title = "blnk Setup"
         w.contentView = hostingView
         w.center()
         w.isReleasedWhenClosed = false
@@ -170,6 +170,9 @@ private struct SetupRequiredView: View {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+#if canImport(AppKit)
+        NSApp.appearance = NSAppearance(named: .darkAqua)
+#endif
         if !TokenManager.shared.hasToken {
             DispatchQueue.main.async {
                 SettingsWindowController.shared.show(showOnboarding: true) {}

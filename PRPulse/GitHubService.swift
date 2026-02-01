@@ -103,7 +103,6 @@ final class GitHubService: ObservableObject {
                 self.currentUserLogin = result.viewerLogin
                 self.lastUpdated = Date()
                 self.isLoading = false
-                NotificationManager.shared.processUpdates(pullRequests: result.pullRequests, currentUserLogin: result.viewerLogin)
             } catch {
                 self.errorMessage = error.localizedDescription
                 self.isLoading = false

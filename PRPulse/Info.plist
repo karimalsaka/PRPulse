@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleName</key>
-	<string>PRPulse</string>
+	<string>blnk</string>
 	<key>CFBundleDisplayName</key>
-	<string>PR Pulse</string>
+	<string>blnk</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.prpulse.app</string>
 	<key>CFBundleVersion</key>
@@ -15,7 +15,7 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleExecutable</key>
-	<string>PRPulse</string>
+	<string>$(PRODUCT_NAME)</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>13.0</string>
 	<key>LSUIElement</key>
