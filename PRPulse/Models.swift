@@ -3,8 +3,9 @@ import Foundation
 // MARK: - Filters
 
 enum PRFilter: String, CaseIterable, Identifiable {
-    case all = "All"
+    case all = "All PRs"
     case needsAttention = "Needs Attention"
+    case reviewRequested = "Review Requested"
     case approved = "Approved"
     case drafts = "Drafts"
 
@@ -14,6 +15,7 @@ enum PRFilter: String, CaseIterable, Identifiable {
         switch self {
         case .all: return "list.bullet"
         case .needsAttention: return "exclamationmark.circle.fill"
+        case .reviewRequested: return "person.crop.circle.badge.checkmark"
         case .approved: return "checkmark.seal.fill"
         case .drafts: return "doc.fill"
         }
@@ -76,12 +78,13 @@ enum ReviewState: String, Codable {
 }
 
 struct PullRequest: Identifiable, Equatable {
-    let id: Int
+    let id: String
     let number: Int
     let title: String
     let repoFullName: String
     let htmlURL: URL
     let headSHA: String
+    let updatedAt: Date
     let commentCount: Int
     let isDraft: Bool
     var ciStatus: CIStatus = .unknown
@@ -110,6 +113,10 @@ struct PullRequest: Identifiable, Equatable {
     var allComments: [PRComment] {
         let threaded = reviewThreads.flatMap { $0.comments }
         return (recentComments + threaded).sorted { $0.createdAt > $1.createdAt }
+    }
+
+    var rowIdentity: String {
+        "\(id)-\(updatedAt.timeIntervalSince1970)"
     }
 }
 

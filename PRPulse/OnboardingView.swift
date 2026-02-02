@@ -484,7 +484,8 @@ extension OnboardingView {
                     PRRowView(
                         pr: pullRequest,
                         permissionsState: demoPermissionsState,
-                        currentUserLogin: demoCurrentUser
+                        currentUserLogin: demoCurrentUser,
+                        isInteractive: false
                     )
                 }
             }
@@ -730,12 +731,13 @@ extension OnboardingView {
         reviewThreads: [PRCommentThread] = []
     ) -> PullRequest {
         PullRequest(
-            id: id,
+            id: "\(repoFullName)#\(number)",
             number: number,
             title: title,
             repoFullName: repoFullName,
             htmlURL: URL(string: "https://github.com/\(repoFullName)/pull/\(number)")!,
             headSHA: "",
+            updatedAt: Date(),
             commentCount: recentComments.count + reviewThreads.reduce(0) { $0 + $1.comments.count },
             isDraft: isDraft,
             ciStatus: ciStatus,

@@ -19,6 +19,7 @@ final class GitHubService: ObservableObject {
         switch filter {
         case .all: return pullRequests
         case .needsAttention: return pullRequests.filter { $0.ciStatus == .failure || $0.hasConflicts || $0.reviewState == .changesRequested }
+        case .reviewRequested: return pullRequests.filter { $0.isRequestedReviewer }
         case .approved: return pullRequests.filter { $0.reviewState == .approved }
         case .drafts: return pullRequests.filter { $0.isDraft }
         }
@@ -124,6 +125,86 @@ final class GitHubService: ObservableObject {
                 title
                 url
                 isDraft
+                updatedAt
+                mergeable
+                repository {
+                  nameWithOwner
+                  name
+                }
+                commits(last: 1) {
+                  nodes {
+                    commit {
+                      statusCheckRollup {
+                        state
+                        contexts(first: 30) {
+                          nodes {
+                            ... on CheckRun {
+                              __typename
+                              name
+                              status
+                              conclusion
+                            }
+                            ... on StatusContext {
+                              __typename
+                              context
+                              state
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                reviews(last: 20) {
+                  nodes {
+                    id
+                    state
+                    createdAt
+                    author {
+                      login
+                    }
+                  }
+                }
+                comments(last: 100) {
+                  totalCount
+                  nodes {
+                    id
+                    url
+                    body
+                    createdAt
+                    author {
+                      login
+                    }
+                  }
+                }
+                reviewThreads(last: 50) {
+                  nodes {
+                    id
+                    comments(last: 20) {
+                      nodes {
+                        id
+                        url
+                        body
+                        createdAt
+                        author {
+                          login
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+          reviewRequests: search(query: "is:pr is:open review-requested:@me", type: ISSUE, first: 50) {
+            nodes {
+              ... on PullRequest {
+                id
+                number
+                title
+                url
+                isDraft
+                updatedAt
                 mergeable
                 repository {
                   nameWithOwner
@@ -205,195 +286,230 @@ final class GitHubService: ObservableObject {
         }
         let viewerLogin = viewer["login"] as? String
         var results: [PullRequest] = []
+        var seenKeys = Set<String>()
+
         for node in nodes {
-            guard let number = node["number"] as? Int,
-                  let title = node["title"] as? String,
-                  let urlStr = node["url"] as? String,
-                  let url = URL(string: urlStr),
-                  let repo = node["repository"] as? [String: Any],
-                  let repoFullName = repo["nameWithOwner"] as? String else { continue }
-
-            let isDraft = node["isDraft"] as? Bool ?? false
-            let mergeableStr = node["mergeable"] as? String ?? "UNKNOWN"
-            let hasConflicts = mergeableStr == "CONFLICTING"
-
-            // Parse CI status
-            var ciStatus: CIStatus = .unknown
-            var failedChecks: [String] = []
-            if let commits = node["commits"] as? [String: Any],
-               let commitNodes = commits["nodes"] as? [[String: Any]],
-               let lastCommit = commitNodes.last,
-               let commit = lastCommit["commit"] as? [String: Any],
-               let rollup = commit["statusCheckRollup"] as? [String: Any] {
-
-                let state = rollup["state"] as? String ?? "UNKNOWN"
-                switch state {
-                case "SUCCESS": ciStatus = .success
-                case "FAILURE", "ERROR": ciStatus = .failure
-                case "PENDING", "EXPECTED": ciStatus = .pending
-                default: ciStatus = .unknown
+            if let pullRequest = parsePullRequestNode(node, isRequestedReviewer: false) {
+                let key = "\(pullRequest.repoFullName)#\(pullRequest.number)"
+                if !seenKeys.contains(key) {
+                    seenKeys.insert(key)
+                    results.append(pullRequest)
                 }
+            }
+        }
 
-                // Get failed check names
-                if ciStatus == .failure,
-                   let contexts = rollup["contexts"] as? [String: Any],
-                   let ctxNodes = contexts["nodes"] as? [[String: Any]] {
-                    for ctx in ctxNodes {
-                        let typeName = ctx["__typename"] as? String ?? ""
-                        if typeName == "CheckRun" {
-                            let conclusion = ctx["conclusion"] as? String ?? ""
-                            if conclusion == "FAILURE" || conclusion == "TIMED_OUT" || conclusion == "CANCELLED" {
-                                if let name = ctx["name"] as? String {
-                                    failedChecks.append(name)
-                                }
+        if let reviewRequests = dataObj["reviewRequests"] as? [String: Any],
+           let reviewNodes = reviewRequests["nodes"] as? [[String: Any]] {
+            for node in reviewNodes {
+                if let pullRequest = parsePullRequestNode(node, isRequestedReviewer: true) {
+                    let key = "\(pullRequest.repoFullName)#\(pullRequest.number)"
+                    if !seenKeys.contains(key) {
+                        seenKeys.insert(key)
+                        results.append(pullRequest)
+                    }
+                }
+            }
+        }
+
+        for pr in results {
+            print("Mergeable status: \(pr.repoFullName)#\(pr.number) • mergeable=\(pr.hasConflicts ? "CONFLICTING" : "NOT_CONFLICTING")")
+        }
+
+        return (pullRequests: results, viewerLogin: viewerLogin)
+    }
+
+    private func parsePullRequestNode(_ node: [String: Any], isRequestedReviewer: Bool) -> PullRequest? {
+        guard let number = node["number"] as? Int,
+              let title = node["title"] as? String,
+              let urlStr = node["url"] as? String,
+              let url = URL(string: urlStr),
+              let repo = node["repository"] as? [String: Any],
+              let repoFullName = repo["nameWithOwner"] as? String else { return nil }
+
+        let isDraft = node["isDraft"] as? Bool ?? false
+        let updatedAtStr = node["updatedAt"] as? String ?? ""
+        let updatedAt = parseDate(updatedAtStr) ?? Date()
+        let mergeableStr = node["mergeable"] as? String ?? "UNKNOWN"
+        let hasConflicts = mergeableStr == "CONFLICTING"
+
+        // Parse CI status
+        var ciStatus: CIStatus = .unknown
+        var failedChecks: [String] = []
+        if let commits = node["commits"] as? [String: Any],
+           let commitNodes = commits["nodes"] as? [[String: Any]],
+           let lastCommit = commitNodes.last,
+           let commit = lastCommit["commit"] as? [String: Any],
+           let rollup = commit["statusCheckRollup"] as? [String: Any] {
+
+            let state = rollup["state"] as? String ?? "UNKNOWN"
+            switch state {
+            case "SUCCESS": ciStatus = .success
+            case "FAILURE", "ERROR": ciStatus = .failure
+            case "PENDING", "EXPECTED": ciStatus = .pending
+            default: ciStatus = .unknown
+            }
+
+            // Get failed check names
+            if ciStatus == .failure,
+               let contexts = rollup["contexts"] as? [String: Any],
+               let ctxNodes = contexts["nodes"] as? [[String: Any]] {
+                for ctx in ctxNodes {
+                    let typeName = ctx["__typename"] as? String ?? ""
+                    if typeName == "CheckRun" {
+                        let conclusion = ctx["conclusion"] as? String ?? ""
+                        if conclusion == "FAILURE" || conclusion == "TIMED_OUT" || conclusion == "CANCELLED" {
+                            if let name = ctx["name"] as? String {
+                                failedChecks.append(name)
                             }
-                        } else if typeName == "StatusContext" {
-                            let ctxState = ctx["state"] as? String ?? ""
-                            if ctxState == "FAILURE" || ctxState == "ERROR" {
-                                if let context = ctx["context"] as? String {
-                                    failedChecks.append(context)
-                                }
+                        }
+                    } else if typeName == "StatusContext" {
+                        let ctxState = ctx["state"] as? String ?? ""
+                        if ctxState == "FAILURE" || ctxState == "ERROR" {
+                            if let context = ctx["context"] as? String {
+                                failedChecks.append(context)
                             }
                         }
                     }
                 }
             }
+        }
 
-            // Parse review state
-            var reviewState: ReviewState = .unknown
-            if let reviews = node["reviews"] as? [String: Any],
-               let reviewNodes = reviews["nodes"] as? [[String: Any]] {
-                var latestByUser: [String: String] = [:]
-                for review in reviewNodes {
-                    let state = review["state"] as? String ?? ""
-                    if state == "COMMENTED" { continue }
-                    if let author = review["author"] as? [String: Any],
-                       let login = author["login"] as? String {
-                        latestByUser[login] = state
-                    }
-                }
-                if latestByUser.values.contains("CHANGES_REQUESTED") {
-                    reviewState = .changesRequested
-                } else if latestByUser.values.contains("APPROVED") {
-                    reviewState = .approved
-                } else if !latestByUser.isEmpty {
-                    reviewState = .unknown
+        // Parse review state
+        var reviewState: ReviewState = .unknown
+        if let reviews = node["reviews"] as? [String: Any],
+           let reviewNodes = reviews["nodes"] as? [[String: Any]] {
+            var latestByUser: [String: String] = [:]
+            for review in reviewNodes {
+                let state = review["state"] as? String ?? ""
+                if state == "COMMENTED" { continue }
+                if let author = review["author"] as? [String: Any],
+                   let login = author["login"] as? String {
+                    latestByUser[login] = state
                 }
             }
-
-            // Parse comments (hide selected bots)
-            let hiddenBotNames = Set(["tuist", "greplite", "greptile-apps", "github-actions", "[bot]"])
-            var recentComments: [PRComment] = []
-            var commentCount = 0
-            if let comments = node["comments"] as? [String: Any] {
-                commentCount = comments["totalCount"] as? Int ?? 0
-                if let commentNodes = comments["nodes"] as? [[String: Any]] {
-                    recentComments = commentNodes.compactMap { c -> PRComment? in
-                        guard let author = c["author"] as? [String: Any],
-                              let login = author["login"] as? String,
-                              let body = c["body"] as? String,
-                              let dateStr = c["createdAt"] as? String else { return nil }
-
-                        let loginLower = login.lowercased()
-                        if hiddenBotNames.contains(where: { loginLower.contains($0) }) {
-                            return nil
-                        }
-
-                        let id = c["id"] as? String ?? UUID().uuidString
-                        guard let createdAt = parseDate(dateStr) else { return nil }
-                        let url = (c["url"] as? String).flatMap { URL(string: $0) }
-                        return PRComment(
-                            id: id,
-                            author: login,
-                            body: body,
-                            createdAt: createdAt,
-                            url: url
-                        )
-                    }
-                }
+            if latestByUser.values.contains("CHANGES_REQUESTED") {
+                reviewState = .changesRequested
+            } else if latestByUser.values.contains("APPROVED") {
+                reviewState = .approved
+            } else if !latestByUser.isEmpty {
+                reviewState = .unknown
             }
+        }
 
-            var reviewThreadModels: [PRCommentThread] = []
-            if let reviewThreads = node["reviewThreads"] as? [String: Any],
-               let threadNodes = reviewThreads["nodes"] as? [[String: Any]] {
-                for thread in threadNodes {
-                    let threadId = thread["id"] as? String ?? UUID().uuidString
-                    guard let comments = thread["comments"] as? [String: Any],
-                          let commentNodes = comments["nodes"] as? [[String: Any]] else { continue }
-
-                    let parsed: [PRComment] = commentNodes.compactMap { c -> PRComment? in
-                        guard let author = c["author"] as? [String: Any],
-                              let login = author["login"] as? String,
-                              let body = c["body"] as? String,
-                              let dateStr = c["createdAt"] as? String else { return nil }
-
-                        let loginLower = login.lowercased()
-                        if hiddenBotNames.contains(where: { loginLower.contains($0) }) {
-                            return nil
-                        }
-
-                        let id = c["id"] as? String ?? UUID().uuidString
-                        guard let createdAt = parseDate(dateStr) else { return nil }
-                        let url = (c["url"] as? String).flatMap { URL(string: $0) }
-                        return PRComment(
-                            id: id,
-                            author: login,
-                            body: body,
-                            createdAt: createdAt,
-                            url: url
-                        )
-                    }
-                    if !parsed.isEmpty {
-                        let sorted = parsed.sorted { $0.createdAt > $1.createdAt }
-                        let threadModel = PRCommentThread(id: threadId, comments: sorted)
-                        reviewThreadModels.append(threadModel)
-                    }
-                }
-            }
-
-            recentComments.sort { $0.createdAt > $1.createdAt }
-            reviewThreadModels.sort { ($0.latestComment?.createdAt ?? .distantPast) > ($1.latestComment?.createdAt ?? .distantPast) }
-            var recentReviews: [PRReview] = []
-            if let reviews = node["reviews"] as? [String: Any],
-               let reviewNodes = reviews["nodes"] as? [[String: Any]] {
-                for review in reviewNodes {
-                    let state = review["state"] as? String ?? ""
-                    if state == "COMMENTED" { continue }
-                    guard let author = review["author"] as? [String: Any],
-                          let login = author["login"] as? String else { continue }
+        // Parse comments (hide selected bots)
+        let hiddenBotNames = Set(["tuist", "greplite", "greptile-apps", "github-actions", "[bot]"])
+        var recentComments: [PRComment] = []
+        var commentCount = 0
+        if let comments = node["comments"] as? [String: Any] {
+            commentCount = comments["totalCount"] as? Int ?? 0
+            if let commentNodes = comments["nodes"] as? [[String: Any]] {
+                recentComments = commentNodes.compactMap { c -> PRComment? in
+                    guard let author = c["author"] as? [String: Any],
+                          let login = author["login"] as? String,
+                          let body = c["body"] as? String,
+                          let dateStr = c["createdAt"] as? String else { return nil }
 
                     let loginLower = login.lowercased()
                     if hiddenBotNames.contains(where: { loginLower.contains($0) }) {
-                        continue
+                        return nil
                     }
 
-                    let id = review["id"] as? String ?? UUID().uuidString
-                    let dateStr = review["createdAt"] as? String ?? ""
-                    guard let createdAt = parseDate(dateStr) else { continue }
-                    recentReviews.append(PRReview(id: id, author: login, state: state, createdAt: createdAt))
+                    let id = c["id"] as? String ?? UUID().uuidString
+                    guard let createdAt = parseDate(dateStr) else { return nil }
+                    let url = (c["url"] as? String).flatMap { URL(string: $0) }
+                    return PRComment(
+                        id: id,
+                        author: login,
+                        body: body,
+                        createdAt: createdAt,
+                        url: url
+                    )
                 }
             }
-            recentReviews.sort { $0.createdAt > $1.createdAt }
-
-            results.append(PullRequest(
-                id: number,
-                number: number,
-                title: title,
-                repoFullName: repoFullName,
-                htmlURL: url,
-                headSHA: "",
-                commentCount: commentCount,
-                isDraft: isDraft,
-                ciStatus: ciStatus,
-                failedChecks: failedChecks,
-                reviewState: reviewState,
-                hasConflicts: hasConflicts,
-                recentReviews: recentReviews,
-                recentComments: recentComments,
-                reviewThreads: reviewThreadModels
-            ))
         }
-        return (pullRequests: results, viewerLogin: viewerLogin)
+
+        var reviewThreadModels: [PRCommentThread] = []
+        if let reviewThreads = node["reviewThreads"] as? [String: Any],
+           let threadNodes = reviewThreads["nodes"] as? [[String: Any]] {
+            for thread in threadNodes {
+                let threadId = thread["id"] as? String ?? UUID().uuidString
+                guard let comments = thread["comments"] as? [String: Any],
+                      let commentNodes = comments["nodes"] as? [[String: Any]] else { continue }
+
+                let parsed: [PRComment] = commentNodes.compactMap { c -> PRComment? in
+                    guard let author = c["author"] as? [String: Any],
+                          let login = author["login"] as? String,
+                          let body = c["body"] as? String,
+                          let dateStr = c["createdAt"] as? String else { return nil }
+
+                    let loginLower = login.lowercased()
+                    if hiddenBotNames.contains(where: { loginLower.contains($0) }) {
+                        return nil
+                    }
+
+                    let id = c["id"] as? String ?? UUID().uuidString
+                    guard let createdAt = parseDate(dateStr) else { return nil }
+                    let url = (c["url"] as? String).flatMap { URL(string: $0) }
+                    return PRComment(
+                        id: id,
+                        author: login,
+                        body: body,
+                        createdAt: createdAt,
+                        url: url
+                    )
+                }
+                if !parsed.isEmpty {
+                    let sorted = parsed.sorted { $0.createdAt > $1.createdAt }
+                    let threadModel = PRCommentThread(id: threadId, comments: sorted)
+                    reviewThreadModels.append(threadModel)
+                }
+            }
+        }
+
+        recentComments.sort { $0.createdAt > $1.createdAt }
+        reviewThreadModels.sort { ($0.latestComment?.createdAt ?? .distantPast) > ($1.latestComment?.createdAt ?? .distantPast) }
+        var recentReviews: [PRReview] = []
+        if let reviews = node["reviews"] as? [String: Any],
+           let reviewNodes = reviews["nodes"] as? [[String: Any]] {
+            for review in reviewNodes {
+                let state = review["state"] as? String ?? ""
+                if state == "COMMENTED" { continue }
+                guard let author = review["author"] as? [String: Any],
+                      let login = author["login"] as? String else { continue }
+
+                let loginLower = login.lowercased()
+                if hiddenBotNames.contains(where: { loginLower.contains($0) }) {
+                    continue
+                }
+
+                let id = review["id"] as? String ?? UUID().uuidString
+                let dateStr = review["createdAt"] as? String ?? ""
+                guard let createdAt = parseDate(dateStr) else { continue }
+                recentReviews.append(PRReview(id: id, author: login, state: state, createdAt: createdAt))
+            }
+        }
+        recentReviews.sort { $0.createdAt > $1.createdAt }
+
+        let stableId = (node["id"] as? String) ?? "\(repoFullName)#\(number)"
+        return PullRequest(
+            id: stableId,
+            number: number,
+            title: title,
+            repoFullName: repoFullName,
+            htmlURL: url,
+            headSHA: "",
+            updatedAt: updatedAt,
+            commentCount: commentCount,
+            isDraft: isDraft,
+            ciStatus: ciStatus,
+            failedChecks: failedChecks,
+            reviewState: reviewState,
+            hasConflicts: hasConflicts,
+            recentReviews: recentReviews,
+            recentComments: recentComments,
+            reviewThreads: reviewThreadModels,
+            isRequestedReviewer: isRequestedReviewer
+        )
     }
 
     private func performGraphQLRequest(token: String, query: String) async throws -> [String: Any] {
@@ -437,9 +553,9 @@ final class GitHubService: ObservableObject {
 
     private static let mockPullRequests: [PullRequest] = [
             PullRequest(
-                id: 1, number: 142, title: "feat: Add dark mode support across all components",
+            id: "acme/frontend#142", number: 142, title: "feat: Add dark mode support across all components",
                 repoFullName: "acme/frontend", htmlURL: URL(string: "https://github.com")!,
-                headSHA: "abc123", commentCount: 3, isDraft: false,
+                headSHA: "abc123", updatedAt: Date().addingTimeInterval(-3600), commentCount: 3, isDraft: false,
                 ciStatus: .success, failedChecks: [], reviewState: .approved,
                 hasConflicts: false,
                 recentComments: [
@@ -448,9 +564,9 @@ final class GitHubService: ObservableObject {
                 ]
             ),
             PullRequest(
-                id: 2, number: 87, title: "fix: Resolve memory leak in WebSocket connection handler",
+                id: "acme/backend-api#87", number: 87, title: "fix: Resolve memory leak in WebSocket connection handler",
                 repoFullName: "acme/backend-api", htmlURL: URL(string: "https://github.com")!,
-                headSHA: "def456", commentCount: 5, isDraft: false,
+                headSHA: "def456", updatedAt: Date().addingTimeInterval(-7200), commentCount: 5, isDraft: false,
                 ciStatus: .failure, failedChecks: ["Build / test-linux", "CI / integration-tests"], reviewState: .changesRequested,
                 hasConflicts: true,
                 recentComments: [
@@ -474,16 +590,16 @@ final class GitHubService: ObservableObject {
                 ]
             ),
             PullRequest(
-                id: 3, number: 201, title: "chore: Bump dependencies and fix security advisories",
+                id: "acme/infrastructure#201", number: 201, title: "chore: Bump dependencies and fix security advisories",
                 repoFullName: "acme/infrastructure", htmlURL: URL(string: "https://github.com")!,
-                headSHA: "ghi789", commentCount: 0, isDraft: false,
+                headSHA: "ghi789", updatedAt: Date().addingTimeInterval(-10800), commentCount: 0, isDraft: false,
                 ciStatus: .pending, failedChecks: [], reviewState: .pending,
                 hasConflicts: false, recentComments: []
             ),
             PullRequest(
-                id: 4, number: 55, title: "WIP: Experiment with new caching strategy for GraphQL queries",
+                id: "acme/frontend#55", number: 55, title: "WIP: Experiment with new caching strategy for GraphQL queries",
                 repoFullName: "acme/frontend", htmlURL: URL(string: "https://github.com")!,
-                headSHA: "jkl012", commentCount: 1, isDraft: true,
+                headSHA: "jkl012", updatedAt: Date().addingTimeInterval(-86400), commentCount: 1, isDraft: true,
                 ciStatus: .unknown, failedChecks: [], reviewState: .unknown,
                 hasConflicts: false,
                 recentComments: [
@@ -491,9 +607,9 @@ final class GitHubService: ObservableObject {
                 ]
             ),
             PullRequest(
-                id: 5, number: 33, title: "feat: Add OAuth2 PKCE flow for mobile clients",
+                id: "acme/auth-service#33", number: 33, title: "feat: Add OAuth2 PKCE flow for mobile clients",
                 repoFullName: "acme/auth-service", htmlURL: URL(string: "https://github.com")!,
-                headSHA: "mno345", commentCount: 8, isDraft: false,
+                headSHA: "mno345", updatedAt: Date().addingTimeInterval(-600), commentCount: 8, isDraft: false,
                 ciStatus: .success, failedChecks: [], reviewState: .approved,
                 hasConflicts: false,
                 recentComments: [
@@ -501,9 +617,9 @@ final class GitHubService: ObservableObject {
                 ]
             ),
             PullRequest(
-                id: 6, number: 12, title: "fix: Rate limiter bypassed when API key rotates mid-request",
+                id: "acme/backend-api#12", number: 12, title: "fix: Rate limiter bypassed when API key rotates mid-request",
                 repoFullName: "acme/backend-api", htmlURL: URL(string: "https://github.com")!,
-                headSHA: "pqr678", commentCount: 2, isDraft: false,
+                headSHA: "pqr678", updatedAt: Date().addingTimeInterval(-5400), commentCount: 2, isDraft: false,
                 ciStatus: .failure, failedChecks: ["CI / lint"], reviewState: .pending,
                 hasConflicts: false,
                 recentComments: [

@@ -4,11 +4,12 @@ struct PRRowView: View {
     let pr: PullRequest
     let permissionsState: PermissionsState
     let currentUserLogin: String?
+    let isInteractive: Bool
+    @Binding var showComments: Bool
+    @Binding var showThreads: Bool
     @State private var isHovered = false
     @State private var isDiscussionHovered = false
     @State private var isInlineHovered = false
-    @State private var showComments = false
-    @State private var showThreads = false
     private var displayCommentCount: Int { pr.allComments.count }
     private var singleThreadComments: [PRComment] {
         pr.reviewThreads
@@ -20,6 +21,22 @@ struct PRRowView: View {
     }
     private var discussionComments: [PRComment] {
         (pr.recentComments + singleThreadComments).sorted(by: { $0.createdAt < $1.createdAt })
+    }
+
+    init(
+        pr: PullRequest,
+        permissionsState: PermissionsState,
+        currentUserLogin: String?,
+        showComments: Binding<Bool> = .constant(false),
+        showThreads: Binding<Bool> = .constant(false),
+        isInteractive: Bool = true
+    ) {
+        self.pr = pr
+        self.permissionsState = permissionsState
+        self.currentUserLogin = currentUserLogin
+        self._showComments = showComments
+        self._showThreads = showThreads
+        self.isInteractive = isInteractive
     }
 
     var body: some View {
@@ -191,7 +208,9 @@ struct PRRowView: View {
                                         withAnimation(.easeInOut(duration: 0.2)) {
                                             isDiscussionHovered = hovering
                                         }
-                                        if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
+                                        if isInteractive {
+                                            if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
+                                        }
                                     }
                                 .onTapGesture {
                                     withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
@@ -206,7 +225,7 @@ struct PRRowView: View {
                                                 CommentRow(
                                                     comment: comment,
                                                     isSelf: isSelfComment(comment),
-                                                    showReply: comment.id == replyTargetId && !isSelfComment(comment),
+                                                    showReply: isInteractive && comment.id == replyTargetId && !isSelfComment(comment),
                                                     replyURL: comment.url
                                                 )
                                             }
@@ -260,7 +279,9 @@ struct PRRowView: View {
                                         withAnimation(.easeInOut(duration: 0.2)) {
                                             isInlineHovered = hovering
                                         }
-                                        if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
+                                        if isInteractive {
+                                            if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
+                                        }
                                     }
                                 .onTapGesture {
                                     withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
@@ -287,16 +308,19 @@ struct PRRowView: View {
         }
         .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .onTapGesture {
+            guard isInteractive else { return }
             NSWorkspace.shared.open(pr.htmlURL)
         }
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.2)) {
                 isHovered = hovering
             }
-            if hovering && !isDiscussionHovered && !isInlineHovered {
-                NSCursor.pointingHand.set()
-            } else if !hovering {
-                NSCursor.arrow.set()
+            if isInteractive {
+                if hovering && !isDiscussionHovered && !isInlineHovered {
+                    NSCursor.pointingHand.set()
+                } else if !hovering {
+                    NSCursor.arrow.set()
+                }
             }
         }
     }
@@ -369,7 +393,7 @@ struct PRRowView: View {
                     CommentRow(
                         comment: comment,
                         isSelf: isSelfComment(comment),
-                        showReply: comment.id == replyTargetId && !isSelfComment(comment),
+                        showReply: isInteractive && comment.id == replyTargetId && !isSelfComment(comment),
                         replyURL: comment.url
                     )
                         .padding(.leading, 6)

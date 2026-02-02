@@ -3,6 +3,7 @@ import SwiftUI
 struct PRListView: View {
     @ObservedObject var service: GitHubService
     @Binding var showingTokenSheet: Bool
+    @State private var rowExpansions: [String: RowExpansion] = [:]
 
     var body: some View {
         ZStack {
@@ -113,8 +114,14 @@ struct PRListView: View {
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 12) {
                             let filtered = service.filteredPullRequests
-                            ForEach(Array(filtered.enumerated()), id: \.element.id) { _, pr in
-                                PRRowView(pr: pr, permissionsState: service.permissionsState, currentUserLogin: service.currentUserLogin)
+                            ForEach(Array(filtered.enumerated()), id: \.element.rowIdentity) { _, pr in
+                                PRRowView(
+                                    pr: pr,
+                                    permissionsState: service.permissionsState,
+                                    currentUserLogin: service.currentUserLogin,
+                                    showComments: binding(for: pr.id).showComments,
+                                    showThreads: binding(for: pr.id).showThreads
+                                )
                             }
                         }
                         .padding(.horizontal, 16)
@@ -154,6 +161,34 @@ struct PRListView: View {
 
     private func countFor(_ filter: PRFilter) -> Int {
         return service.count(for: filter)
+    }
+
+    private func binding(for id: String) -> Binding<RowExpansion> {
+        Binding<RowExpansion>(
+            get: { rowExpansions[id] ?? RowExpansion() },
+            set: { rowExpansions[id] = $0 }
+        )
+    }
+}
+
+private struct RowExpansion: Equatable {
+    var showComments = false
+    var showThreads = false
+}
+
+private extension Binding where Value == RowExpansion {
+    var showComments: Binding<Bool> {
+        Binding<Bool>(
+            get: { wrappedValue.showComments },
+            set: { wrappedValue.showComments = $0 }
+        )
+    }
+
+    var showThreads: Binding<Bool> {
+        Binding<Bool>(
+            get: { wrappedValue.showThreads },
+            set: { wrappedValue.showThreads = $0 }
+        )
     }
 }
 
