@@ -187,12 +187,12 @@ struct PRRowView: View {
                                         )
                                 )
                                 .contentShape(Rectangle())
-                                .onHover { hovering in
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        isDiscussionHovered = hovering
+                                    .onHover { hovering in
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            isDiscussionHovered = hovering
+                                        }
+                                        if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
                                     }
-                                    if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
-                                }
                                 .onTapGesture {
                                     withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
                                         showComments.toggle()
@@ -256,12 +256,12 @@ struct PRRowView: View {
                                         )
                                 )
                                 .contentShape(Rectangle())
-                                .onHover { hovering in
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        isInlineHovered = hovering
+                                    .onHover { hovering in
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            isInlineHovered = hovering
+                                        }
+                                        if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
                                     }
-                                    if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
-                                }
                                 .onTapGesture {
                                     withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
                                         showThreads.toggle()
@@ -294,9 +294,9 @@ struct PRRowView: View {
                 isHovered = hovering
             }
             if hovering && !isDiscussionHovered && !isInlineHovered {
-                NSCursor.pointingHand.push()
+                NSCursor.pointingHand.set()
             } else if !hovering {
-                NSCursor.pop()
+                NSCursor.arrow.set()
             }
         }
     }
