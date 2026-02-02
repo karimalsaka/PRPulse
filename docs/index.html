@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>blnk — Pull Requests at a Glance</title>
+  <meta name="description" content="blnk keeps pull requests in focus with instant status, review requests, and conversations in a compact macOS view.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <nav class="nav">
+      <div class="brand">
+        <span>blnk</span>
+      </div>
+      <div class="nav-links">
+        <a href="#features">Benefits</a>
+        <a href="#how">Setup</a>
+        <a href="#security">Permissions</a>
+      </div>
+    </nav>
+
+    <main>
+      <section class="hero">
+        <div class="hero-copy reveal" style="--delay: 0s">
+          <div class="badge">Pull requests, at a glance</div>
+          <h1>Everything you need, before you blink.</h1>
+          <p>blnk is a macOS menu bar app that shows open PRs, review requests, CI state, conflicts, and conversation updates in a single compact view.</p>
+          <div class="cta">
+            <!-- Update this link to your release or GitHub repo -->
+            <a class="btn primary" href="#">View on GitHub</a>
+            <a class="btn ghost" href="#features">What you get</a>
+          </div>
+          <ul class="quick-facts">
+            <li>See what’s blocked, approved, or waiting without digging into GitHub.</li>
+            <li>Review requests across repos, with CI and conflict status in one glance.</li>
+            <li>No hunting through GitHub tabs just to find the PRs that matter.</li>
+          </ul>
+        </div>
+        <div class="hero-visual reveal" style="--delay: 0.1s">
+          <img src="assets/screenshot-hero.png" alt="blnk app overview">
+        </div>
+      </section>
+
+      <section class="section" id="features">
+        <h2 class="reveal" style="--delay: 0s">What you get</h2>
+        <p class="lead reveal" style="--delay: 0.05s">Focused signal for the PRs you own or review.</p>
+        <div class="grid">
+          <article class="card reveal" style="--delay: 0.1s">
+            <h3>Needs attention, fast</h3>
+            <p>See failing CI, merge conflicts, or change requests before they block release.</p>
+          </article>
+          <article class="card reveal" style="--delay: 0.15s">
+            <h3>Review requests, centralized</h3>
+            <p>Every requested review across orgs in one list.</p>
+          </article>
+          <article class="card reveal" style="--delay: 0.2s">
+            <h3>Conversation context</h3>
+            <p>Read recent discussion and inline threads without opening a browser.</p>
+          </article>
+          <article class="card reveal" style="--delay: 0.25s">
+            <h3>My PRs, always current</h3>
+            <p>Track your own PRs with approvals, feedback, and status updates.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="how">
+        <h2 class="reveal" style="--delay: 0s">Setup</h2>
+        <p class="lead reveal" style="--delay: 0.05s">Two quick steps. Notifications are on the way.</p>
+        <div class="steps">
+          <div class="step reveal" style="--delay: 0.1s">
+            <span>1</span>
+            <h3>Connect GitHub</h3>
+            <p>Create a read-only GitHub token with access to pull requests, CI status, reviews, and comments.</p>
+          </div>
+          <div class="step reveal" style="--delay: 0.15s">
+            <span>2</span>
+            <h3>Enter your token</h3>
+            <p>Paste it into blnk and your PRs appear instantly.</p>
+          </div>
+          <div class="step reveal" style="--delay: 0.2s">
+            <span>3</span>
+            <h3>Notifications</h3>
+            <p>Coming soon.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="security">
+        <h2 class="reveal" style="--delay: 0s">Permissions</h2>
+        <p class="lead reveal" style="--delay: 0.05s">blnk talks directly to GitHub and keeps everything local.</p>
+        <div class="callouts">
+          <div class="callout reveal" style="--delay: 0.1s"><strong>Read-only scopes.</strong> Pull requests, CI status, reviews, comments.</div>
+          <div class="callout reveal" style="--delay: 0.15s"><strong>Local storage.</strong> Tokens stay on your Mac in UserDefaults.</div>
+          <div class="callout reveal" style="--delay: 0.2s"><strong>No middleman.</strong> Direct GitHub GraphQL API calls.</div>
+        </div>
+      </section>
+
+    </main>
+
+    <footer class="footer">
+      <span>Built for teams who live in pull requests.</span>
+    </footer>
+  </div>
+</body>
+</html>
