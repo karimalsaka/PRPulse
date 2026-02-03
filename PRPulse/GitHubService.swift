@@ -348,8 +348,6 @@ final class GitHubService: ObservableObject {
         if let commitNodes = node.commits?.nodes?.compactMap({ $0 }),
            let lastCommit = commitNodes.last,
            let rollup = lastCommit.commit?.statusCheckRollup {
-            logStatusRollup(rollup, repoFullName: repoFullName, number: number)
-
             let state = rollup.state ?? "UNKNOWN"
             switch state {
             case "SUCCESS": ciStatus = .success
@@ -528,19 +526,6 @@ final class GitHubService: ObservableObject {
             isRequestedReviewer: isRequestedReviewer,
             isReviewedByMe: isReviewedByMe
         )
-    }
-
-    private func logStatusRollup(_ rollup: GitHubGraphQLStatusCheckRollupResponse, repoFullName: String, number: Int) {
-#if DEBUG
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        if let data = try? encoder.encode(rollup),
-           let json = String(data: data, encoding: .utf8) {
-            print("CI rollup for \(repoFullName)#\(number):\n\(json)")
-        } else {
-            print("CI rollup for \(repoFullName)#\(number): \(rollup)")
-        }
-#endif
     }
 
     private func needsAttention(_ pr: PullRequest) -> Bool {
