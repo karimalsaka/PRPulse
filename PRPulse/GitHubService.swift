@@ -294,16 +294,16 @@ final class GitHubService: ObservableObject {
         """
 
         let dataObj = try await performGraphQLRequest(token: token, query: query)
-        guard let viewer = dataObj["viewer"] as? [String: Any],
-              let pullRequests = viewer["pullRequests"] as? [String: Any],
-              let nodes = pullRequests["nodes"] as? [[String: Any]] else {
+        guard let viewer = dataObj.viewer,
+              let pullRequests = viewer.pullRequests,
+              let nodes = pullRequests.nodes else {
             throw NSError(domain: "GitHub", code: 0, userInfo: [NSLocalizedDescriptionKey: "Unexpected GraphQL response"])
         }
-        let viewerLogin = viewer["login"] as? String
+        let viewerLogin = viewer.login
         var results: [PullRequest] = []
         var seenKeys = Set<String>()
 
-        for node in nodes {
+        for node in nodes.compactMap({ $0 }) {
             if let pullRequest = parsePullRequestNode(node, isRequestedReviewer: false, viewerLogin: viewerLogin) {
                 let key = "\(pullRequest.repoFullName)#\(pullRequest.number)"
                 if !seenKeys.contains(key) {
@@ -313,9 +313,8 @@ final class GitHubService: ObservableObject {
             }
         }
 
-        if let reviewRequests = dataObj["reviewRequests"] as? [String: Any],
-           let reviewNodes = reviewRequests["nodes"] as? [[String: Any]] {
-            for node in reviewNodes {
+        if let reviewNodes = dataObj.reviewRequests?.nodes {
+            for node in reviewNodes.compactMap({ $0 }) {
                 if let pullRequest = parsePullRequestNode(node, isRequestedReviewer: true, viewerLogin: viewerLogin) {
                     let key = "\(pullRequest.repoFullName)#\(pullRequest.number)"
                     if !seenKeys.contains(key) {
@@ -329,32 +328,29 @@ final class GitHubService: ObservableObject {
         return (pullRequests: results, viewerLogin: viewerLogin)
     }
 
-    private func parsePullRequestNode(_ node: [String: Any], isRequestedReviewer: Bool, viewerLogin: String?) -> PullRequest? {
-        guard let number = node["number"] as? Int,
-              let title = node["title"] as? String,
-              let urlStr = node["url"] as? String,
+    private func parsePullRequestNode(_ node: GitHubGraphQLPullRequestResponse, isRequestedReviewer: Bool, viewerLogin: String?) -> PullRequest? {
+        guard let number = node.number,
+              let title = node.title,
+              let urlStr = node.url,
               let url = URL(string: urlStr),
-              let repo = node["repository"] as? [String: Any],
-              let repoFullName = repo["nameWithOwner"] as? String else { return nil }
+              let repoFullName = node.repository?.nameWithOwner else { return nil }
 
-        let isDraft = node["isDraft"] as? Bool ?? false
-        let updatedAtStr = node["updatedAt"] as? String ?? ""
+        let isDraft = node.isDraft ?? false
+        let updatedAtStr = node.updatedAt ?? ""
         let updatedAt = parseDate(updatedAtStr) ?? Date()
-        let authorLogin = (node["author"] as? [String: Any])?["login"] as? String
-        let mergeableStr = node["mergeable"] as? String ?? "UNKNOWN"
+        let authorLogin = node.author?.login
+        let mergeableStr = node.mergeable ?? "UNKNOWN"
         let hasConflicts = mergeableStr == "CONFLICTING"
 
         // Parse CI status
         var ciStatus: CIStatus = .unknown
         var failedChecks = Set<String>()
-        if let commits = node["commits"] as? [String: Any],
-           let commitNodes = commits["nodes"] as? [[String: Any]],
+        if let commitNodes = node.commits?.nodes?.compactMap({ $0 }),
            let lastCommit = commitNodes.last,
-           let commit = lastCommit["commit"] as? [String: Any],
-           let rollup = commit["statusCheckRollup"] as? [String: Any] {
+           let rollup = lastCommit.commit?.statusCheckRollup {
             logStatusRollup(rollup, repoFullName: repoFullName, number: number)
 
-            let state = rollup["state"] as? String ?? "UNKNOWN"
+            let state = rollup.state ?? "UNKNOWN"
             switch state {
             case "SUCCESS": ciStatus = .success
             case "FAILURE", "ERROR": ciStatus = .failure
@@ -363,12 +359,11 @@ final class GitHubService: ObservableObject {
             }
 
             // Get failed check names
-            if let contexts = rollup["contexts"] as? [String: Any],
-               let ctxNodes = contexts["nodes"] as? [[String: Any]] {
+            if let ctxNodes = rollup.contexts?.nodes?.compactMap({ $0 }) {
                 for ctx in ctxNodes {
-                    let typeName = ctx["__typename"] as? String ?? ""
-                    if typeName == "CheckRun" {
-                        let conclusion = (ctx["conclusion"] as? String ?? "").uppercased()
+                    switch ctx {
+                    case let .checkRun(name, _, conclusion):
+                        let conclusion = (conclusion ?? "").uppercased()
                         let failingConclusions: Set<String> = [
                             "FAILURE",
                             "TIMED_OUT",
@@ -378,17 +373,19 @@ final class GitHubService: ObservableObject {
                             "STALE"
                         ]
                         if failingConclusions.contains(conclusion) {
-                            if let name = ctx["name"] as? String {
+                            if let name {
                                 failedChecks.insert(name)
                             }
                         }
-                    } else if typeName == "StatusContext" {
-                        let ctxState = (ctx["state"] as? String ?? "").uppercased()
+                    case let .statusContext(context, state):
+                        let ctxState = (state ?? "").uppercased()
                         if ctxState == "FAILURE" || ctxState == "ERROR" {
-                            if let context = ctx["context"] as? String {
+                            if let context {
                                 failedChecks.insert(context)
                             }
                         }
+                    case .unknown(_):
+                        continue
                     }
                 }
             }
@@ -398,20 +395,17 @@ final class GitHubService: ObservableObject {
         var reviewState: ReviewState = .unknown
         var isReviewedByMe = false
         let viewerLoginLower = viewerLogin?.lowercased()
-        if let reviews = node["reviews"] as? [String: Any],
-           let reviewNodes = reviews["nodes"] as? [[String: Any]] {
+        if let reviewNodes = node.reviews?.nodes?.compactMap({ $0 }) {
             var latestByUser: [String: String] = [:]
             for review in reviewNodes {
-                let state = review["state"] as? String ?? ""
-                if let author = review["author"] as? [String: Any],
-                   let login = author["login"] as? String {
-                    if let viewerLoginLower, login.lowercased() == viewerLoginLower {
-                        isReviewedByMe = true
-                    }
+                let state = review.state ?? ""
+                if let login = review.author?.login,
+                   let viewerLoginLower,
+                   login.lowercased() == viewerLoginLower {
+                    isReviewedByMe = true
                 }
                 if state == "COMMENTED" { continue }
-                if let author = review["author"] as? [String: Any],
-                   let login = author["login"] as? String {
+                if let login = review.author?.login {
                     latestByUser[login] = state
                 }
             }
@@ -428,23 +422,22 @@ final class GitHubService: ObservableObject {
         let hiddenBotNames = Set(["tuist", "greplite", "greptile-apps", "github-actions", "[bot]"])
         var recentComments: [PRComment] = []
         var commentCount = 0
-        if let comments = node["comments"] as? [String: Any] {
-            commentCount = comments["totalCount"] as? Int ?? 0
-            if let commentNodes = comments["nodes"] as? [[String: Any]] {
+        if let comments = node.comments {
+            commentCount = comments.totalCount ?? 0
+            if let commentNodes = comments.nodes?.compactMap({ $0 }) {
                 recentComments = commentNodes.compactMap { c -> PRComment? in
-                    guard let author = c["author"] as? [String: Any],
-                          let login = author["login"] as? String,
-                          let body = c["body"] as? String,
-                          let dateStr = c["createdAt"] as? String else { return nil }
+                    guard let login = c.author?.login,
+                          let body = c.body,
+                          let dateStr = c.createdAt else { return nil }
 
                     let loginLower = login.lowercased()
                     if hiddenBotNames.contains(where: { loginLower.contains($0) }) {
                         return nil
                     }
 
-                    let id = c["id"] as? String ?? UUID().uuidString
+                    let id = c.id ?? UUID().uuidString
                     guard let createdAt = parseDate(dateStr) else { return nil }
-                    let url = (c["url"] as? String).flatMap { URL(string: $0) }
+                    let url = c.url.flatMap { URL(string: $0) }
                     return PRComment(
                         id: id,
                         author: login,
@@ -457,27 +450,24 @@ final class GitHubService: ObservableObject {
         }
 
         var reviewThreadModels: [PRCommentThread] = []
-        if let reviewThreads = node["reviewThreads"] as? [String: Any],
-           let threadNodes = reviewThreads["nodes"] as? [[String: Any]] {
+        if let threadNodes = node.reviewThreads?.nodes?.compactMap({ $0 }) {
             for thread in threadNodes {
-                let threadId = thread["id"] as? String ?? UUID().uuidString
-                guard let comments = thread["comments"] as? [String: Any],
-                      let commentNodes = comments["nodes"] as? [[String: Any]] else { continue }
+                let threadId = thread.id ?? UUID().uuidString
+                guard let commentNodes = thread.comments?.nodes?.compactMap({ $0 }) else { continue }
 
                 let parsed: [PRComment] = commentNodes.compactMap { c -> PRComment? in
-                    guard let author = c["author"] as? [String: Any],
-                          let login = author["login"] as? String,
-                          let body = c["body"] as? String,
-                          let dateStr = c["createdAt"] as? String else { return nil }
+                    guard let login = c.author?.login,
+                          let body = c.body,
+                          let dateStr = c.createdAt else { return nil }
 
                     let loginLower = login.lowercased()
                     if hiddenBotNames.contains(where: { loginLower.contains($0) }) {
                         return nil
                     }
 
-                    let id = c["id"] as? String ?? UUID().uuidString
+                    let id = c.id ?? UUID().uuidString
                     guard let createdAt = parseDate(dateStr) else { return nil }
-                    let url = (c["url"] as? String).flatMap { URL(string: $0) }
+                    let url = c.url.flatMap { URL(string: $0) }
                     return PRComment(
                         id: id,
                         author: login,
@@ -497,28 +487,26 @@ final class GitHubService: ObservableObject {
         recentComments.sort { $0.createdAt > $1.createdAt }
         reviewThreadModels.sort { ($0.latestComment?.createdAt ?? .distantPast) > ($1.latestComment?.createdAt ?? .distantPast) }
         var recentReviews: [PRReview] = []
-        if let reviews = node["reviews"] as? [String: Any],
-           let reviewNodes = reviews["nodes"] as? [[String: Any]] {
+        if let reviewNodes = node.reviews?.nodes?.compactMap({ $0 }) {
             for review in reviewNodes {
-                let state = review["state"] as? String ?? ""
+                let state = review.state ?? ""
                 if state == "COMMENTED" { continue }
-                guard let author = review["author"] as? [String: Any],
-                      let login = author["login"] as? String else { continue }
+                guard let login = review.author?.login else { continue }
 
                 let loginLower = login.lowercased()
                 if hiddenBotNames.contains(where: { loginLower.contains($0) }) {
                     continue
                 }
 
-                let id = review["id"] as? String ?? UUID().uuidString
-                let dateStr = review["createdAt"] as? String ?? ""
+                let id = review.id ?? UUID().uuidString
+                let dateStr = review.createdAt ?? ""
                 guard let createdAt = parseDate(dateStr) else { continue }
                 recentReviews.append(PRReview(id: id, author: login, state: state, createdAt: createdAt))
             }
         }
         recentReviews.sort { $0.createdAt > $1.createdAt }
 
-        let stableId = (node["id"] as? String) ?? "\(repoFullName)#\(number)"
+        let stableId = node.id ?? "\(repoFullName)#\(number)"
         return PullRequest(
             id: stableId,
             number: number,
@@ -542,9 +530,11 @@ final class GitHubService: ObservableObject {
         )
     }
 
-    private func logStatusRollup(_ rollup: [String: Any], repoFullName: String, number: Int) {
+    private func logStatusRollup(_ rollup: GitHubGraphQLStatusCheckRollupResponse, repoFullName: String, number: Int) {
 #if DEBUG
-        if let data = try? JSONSerialization.data(withJSONObject: rollup, options: [.prettyPrinted, .sortedKeys]),
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        if let data = try? encoder.encode(rollup),
            let json = String(data: data, encoding: .utf8) {
             print("CI rollup for \(repoFullName)#\(number):\n\(json)")
         } else {
@@ -558,7 +548,7 @@ final class GitHubService: ObservableObject {
         return pr.ciStatus == .failure || pr.hasConflicts || pr.reviewState == .changesRequested
     }
 
-    private func performGraphQLRequest(token: String, query: String) async throws -> [String: Any] {
+    private func performGraphQLRequest(token: String, query: String) async throws -> GitHubGraphQLPullRequestsResponse {
         var request = URLRequest(url: graphQLURL)
         request.httpMethod = "POST"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -574,16 +564,13 @@ final class GitHubService: ObservableObject {
             throw NSError(domain: "GitHub", code: code, userInfo: [NSLocalizedDescriptionKey: "GraphQL error (HTTP \(code)): \(body.prefix(200))"])
         }
 
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw NSError(domain: "GitHub", code: 0, userInfo: [NSLocalizedDescriptionKey: "Unexpected GraphQL response"])
-        }
-        guard let dataObj = json["data"] as? [String: Any] else {
-            throw NSError(domain: "GitHub", code: 0, userInfo: [NSLocalizedDescriptionKey: "Unexpected GraphQL response"])
-        }
-        if let errors = json["errors"] as? [[String: Any]],
-           let msg = errors.first?["message"] as? String,
-           json["data"] == nil {
+        let response = try decoder.decode(GitHubGraphQLResponse<GitHubGraphQLPullRequestsResponse>.self, from: data)
+        if let errors = response.errors, response.data == nil {
+            let msg = errors.first?.message ?? "GraphQL error"
             throw NSError(domain: "GitHub", code: 0, userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+        guard let dataObj = response.data else {
+            throw NSError(domain: "GitHub", code: 0, userInfo: [NSLocalizedDescriptionKey: "Unexpected GraphQL response"])
         }
         return dataObj
     }

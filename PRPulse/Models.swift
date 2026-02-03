@@ -259,3 +259,161 @@ struct IssueCommentResponse: Codable {
         case createdAt = "created_at"
     }
 }
+
+// MARK: - GraphQL Response Models
+
+struct GitHubGraphQLResponse<T: Decodable>: Decodable {
+    let data: T?
+    let errors: [GitHubGraphQLError]?
+}
+
+struct GitHubGraphQLError: Decodable {
+    let message: String
+}
+
+struct GitHubGraphQLPullRequestsResponse: Decodable {
+    let viewer: GitHubGraphQLViewerResponse?
+    let reviewRequests: GitHubGraphQLSearchResponse?
+}
+
+struct GitHubGraphQLViewerResponse: Decodable {
+    let login: String?
+    let pullRequests: GitHubGraphQLPullRequestConnectionResponse?
+}
+
+struct GitHubGraphQLPullRequestConnectionResponse: Decodable {
+    let nodes: [GitHubGraphQLPullRequestResponse?]?
+}
+
+struct GitHubGraphQLSearchResponse: Decodable {
+    let nodes: [GitHubGraphQLPullRequestResponse?]?
+}
+
+struct GitHubGraphQLPullRequestResponse: Decodable {
+    let id: String?
+    let number: Int?
+    let title: String?
+    let url: String?
+    let isDraft: Bool?
+    let updatedAt: String?
+    let author: GitHubGraphQLUserResponse?
+    let mergeable: String?
+    let repository: GitHubGraphQLRepositoryResponse?
+    let commits: GitHubGraphQLCommitConnectionResponse?
+    let reviews: GitHubGraphQLReviewConnectionResponse?
+    let comments: GitHubGraphQLCommentConnectionResponse?
+    let reviewThreads: GitHubGraphQLReviewThreadConnectionResponse?
+}
+
+struct GitHubGraphQLUserResponse: Decodable {
+    let login: String?
+}
+
+struct GitHubGraphQLRepositoryResponse: Decodable {
+    let nameWithOwner: String?
+    let name: String?
+}
+
+struct GitHubGraphQLCommitConnectionResponse: Decodable {
+    let nodes: [GitHubGraphQLCommitNodeResponse?]?
+}
+
+struct GitHubGraphQLCommitNodeResponse: Decodable {
+    let commit: GitHubGraphQLCommitResponse?
+}
+
+struct GitHubGraphQLCommitResponse: Decodable {
+    let statusCheckRollup: GitHubGraphQLStatusCheckRollupResponse?
+}
+
+struct GitHubGraphQLStatusCheckRollupResponse: Codable {
+    let state: String?
+    let contexts: GitHubGraphQLStatusContextConnectionResponse?
+}
+
+struct GitHubGraphQLStatusContextConnectionResponse: Codable {
+    let nodes: [GitHubGraphQLStatusContextNodeResponse?]?
+}
+
+enum GitHubGraphQLStatusContextNodeResponse: Codable {
+    case checkRun(name: String?, status: String?, conclusion: String?)
+    case statusContext(context: String?, state: String?)
+    case unknown(typeName: String)
+
+    enum CodingKeys: String, CodingKey {
+        case typeName = "__typename"
+        case name
+        case status
+        case conclusion
+        case context
+        case state
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let typeName = try container.decode(String.self, forKey: .typeName)
+        switch typeName {
+        case "CheckRun":
+            let name = try container.decodeIfPresent(String.self, forKey: .name)
+            let status = try container.decodeIfPresent(String.self, forKey: .status)
+            let conclusion = try container.decodeIfPresent(String.self, forKey: .conclusion)
+            self = .checkRun(name: name, status: status, conclusion: conclusion)
+        case "StatusContext":
+            let context = try container.decodeIfPresent(String.self, forKey: .context)
+            let state = try container.decodeIfPresent(String.self, forKey: .state)
+            self = .statusContext(context: context, state: state)
+        default:
+            self = .unknown(typeName: typeName)
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case let .checkRun(name, status, conclusion):
+            try container.encode("CheckRun", forKey: .typeName)
+            try container.encodeIfPresent(name, forKey: .name)
+            try container.encodeIfPresent(status, forKey: .status)
+            try container.encodeIfPresent(conclusion, forKey: .conclusion)
+        case let .statusContext(context, state):
+            try container.encode("StatusContext", forKey: .typeName)
+            try container.encodeIfPresent(context, forKey: .context)
+            try container.encodeIfPresent(state, forKey: .state)
+        case let .unknown(typeName):
+            try container.encode(typeName, forKey: .typeName)
+        }
+    }
+}
+
+struct GitHubGraphQLReviewConnectionResponse: Decodable {
+    let nodes: [GitHubGraphQLReviewResponse?]?
+}
+
+struct GitHubGraphQLReviewResponse: Decodable {
+    let id: String?
+    let state: String?
+    let createdAt: String?
+    let author: GitHubGraphQLUserResponse?
+}
+
+struct GitHubGraphQLCommentConnectionResponse: Decodable {
+    let totalCount: Int?
+    let nodes: [GitHubGraphQLCommentResponse?]?
+}
+
+struct GitHubGraphQLCommentResponse: Decodable {
+    let id: String?
+    let url: String?
+    let body: String?
+    let createdAt: String?
+    let author: GitHubGraphQLUserResponse?
+}
+
+struct GitHubGraphQLReviewThreadConnectionResponse: Decodable {
+    let nodes: [GitHubGraphQLReviewThreadResponse?]?
+}
+
+struct GitHubGraphQLReviewThreadResponse: Decodable {
+    let id: String?
+    let comments: GitHubGraphQLCommentConnectionResponse?
+}
