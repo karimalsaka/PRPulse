@@ -5,7 +5,7 @@ import Foundation
 enum PRFilter: String, CaseIterable, Identifiable {
     case inbox = "Inbox"
     case review = "To Review"
-    case discussed = "Discussed"
+    case discussed = "Involved"
     case mine = "Mine"
     case drafts = "Drafts"
 
