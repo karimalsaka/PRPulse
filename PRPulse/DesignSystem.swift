@@ -262,6 +262,7 @@ struct AppInlineSpinner: View {
     let size: CGFloat
     let lineWidth: CGFloat
     @State private var rotationDegrees: Double = 0
+    @State private var pulse = false
 
     init(tint: Color = AppTheme.accent, size: CGFloat = 12, lineWidth: CGFloat = 2) {
         self.tint = tint
@@ -278,7 +279,7 @@ struct AppInlineSpinner: View {
                 .trim(from: 0, to: 0.28)
                 .stroke(
                     AngularGradient(
-                        gradient: Gradient(colors: [tint.opacity(0.10), tint.opacity(0.95)]),
+                        gradient: Gradient(colors: [tint.opacity(pulse ? 0.22 : 0.14), tint.opacity(pulse ? 1.0 : 0.92)]),
                         center: .center
                     ),
                     style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
@@ -288,8 +289,12 @@ struct AppInlineSpinner: View {
         .frame(width: size, height: size)
         .onAppear {
             rotationDegrees = 0
+            pulse = false
             withAnimation(.linear(duration: 0.9).repeatForever(autoreverses: false)) {
                 rotationDegrees = 360
+            }
+            withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) {
+                pulse = true
             }
         }
         .accessibilityLabel("Loading")
