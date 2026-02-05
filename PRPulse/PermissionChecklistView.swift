@@ -165,41 +165,44 @@ struct PermissionRowView: View {
 
 // MARK: - Preview
 
-#Preview {
-    PermissionChecklistView(
-        validationResult: TokenValidationService.TokenValidationResult(
-            isValid: true,
-            canReadPullRequests: TokenValidationService.PermissionCheck(
-                name: "Pull Requests",
-                description: "View your open pull requests",
-                status: .granted,
-                errorMessage: nil,
-                requiredScope: nil
-            ),
-            canReadCommitStatuses: TokenValidationService.PermissionCheck(
-                name: "CI/CD Status",
-                description: "View commit status checks and CI results",
-                status: .denied,
-                errorMessage: "Missing commit status permission",
-                requiredScope: "repo:status"
-            ),
-            canReadReviews: TokenValidationService.PermissionCheck(
-                name: "Reviews",
-                description: "View PR review states and approvals",
-                status: .granted,
-                errorMessage: nil,
-                requiredScope: nil
-            ),
-            canReadComments: TokenValidationService.PermissionCheck(
-                name: "Comments",
-                description: "View PR comments and discussions",
-                status: .granted,
-                errorMessage: nil,
-                requiredScope: nil
-            ),
-            viewer: "testuser"
+struct PermissionChecklistView_Previews: PreviewProvider {
+    static var previews: some View {
+        PermissionChecklistView(
+            validationResult: TokenValidationService.TokenValidationResult(
+                isValid: true,
+                canReadPullRequests: TokenValidationService.PermissionCheck(
+                    name: "Pull Requests",
+                    description: "View your open pull requests",
+                    status: .granted,
+                    errorMessage: nil,
+                    requiredScope: nil
+                ),
+                canReadCommitStatuses: TokenValidationService.PermissionCheck(
+                    name: "CI/CD Status",
+                    description: "View commit status checks and CI results",
+                    status: .denied,
+                    errorMessage: "Missing commit status permission",
+                    requiredScope: "repo:status"
+                ),
+                canReadReviews: TokenValidationService.PermissionCheck(
+                    name: "Reviews",
+                    description: "View PR review states and approvals",
+                    status: .granted,
+                    errorMessage: nil,
+                    requiredScope: nil
+                ),
+                canReadComments: TokenValidationService.PermissionCheck(
+                    name: "Comments",
+                    description: "View PR comments and discussions",
+                    status: .granted,
+                    errorMessage: nil,
+                    requiredScope: nil
+                ),
+                viewer: "testuser"
+            )
         )
-    )
-    .frame(width: 500)
-    .padding()
+        .frame(width: 500)
+        .padding()
+        .preferredColorScheme(.dark)
+    }
 }

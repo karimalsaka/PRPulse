@@ -16,7 +16,7 @@ struct StatusPill: View {
         }
         .padding(.horizontal, 9)
         .padding(.vertical, 5)
-        .background(AppTheme.surface)
+        .background(AppTheme.elevatedSurface)
         .overlay(
             RoundedRectangle(cornerRadius: 999, style: .continuous)
                 .stroke(AppTheme.stroke, lineWidth: 1)

@@ -11,47 +11,41 @@ struct PRListView: View {
 
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .center) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Everything you need, before you blink")
-                            .padding(.top, 10)
-                            .font(.system(size: 14, weight: .semibold))
-                        Text("Pull Requests")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(.secondary)
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 10) {
+                            Text("blnk")
+                                .font(.system(size: 18, weight: .bold, design: .rounded))
+                                .foregroundColor(AppTheme.textPrimary)
+
+                            if !service.pullRequests.isEmpty {
+                                HealthSummaryView(service: service)
+                            }
+                        }
                     }
 
                     Spacer()
 
-                    if service.isLoading {
-                        ProgressView()
-                            .controlSize(.small)
-                            .frame(width: 20, height: 20)
-                            .padding(.trailing, 10)
-                    } else {
-                        Button(action: { service.fetch() }) {
-                            HStack(spacing: 6) {
+                    Button(action: { service.fetch() }) {
+                        HStack(spacing: 6) {
+                            if service.isLoading {
+                                ProgressView()
+                                    .controlSize(.small)
+                                    .tint(AppTheme.accent)
+                            } else {
                                 Image(systemName: "arrow.clockwise")
                                     .font(.system(size: 11, weight: .semibold))
-                                Text("Refresh")
-                                    .font(.system(size: 11, weight: .semibold))
                             }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
+                            Text("Refresh")
+                                .font(.system(size: 11, weight: .semibold, design: .rounded))
                         }
-                        .buttonStyle(.plain)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(AppTheme.surface)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                        .stroke(AppTheme.stroke, lineWidth: 1)
-                                )
-                        )
-                        .help("Refresh")
                     }
+                    .buttonStyle(AppToolbarButtonStyle(tint: AppTheme.accent))
+                    .opacity(service.isLoading ? 0.75 : 1)
+                    .disabled(service.isLoading)
+                    .help("Refresh")
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 10)
+                .padding(.top, 16)
 
                 // Permissions Banner
                 if !service.permissionsState.hasAllPermissions {
@@ -89,70 +83,92 @@ struct PRListView: View {
                     .padding(.horizontal, 16)
                 }
 
-                if service.filteredPullRequests.isEmpty && !service.isLoading && service.errorMessage == nil {
-                    VStack(spacing: 0) {
-                        AppCard {
-                            VStack(spacing: 10) {
-                                Image(systemName: service.activeFilter == .all ? "checkmark.circle" : "line.3.horizontal.decrease.circle")
-                                    .font(.system(size: 36))
-                                    .foregroundColor(service.activeFilter == .all ? AppTheme.success : .secondary)
-                                Text(service.activeFilter == .all ? "All clear!" : "No matches")
-                                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                                Text(service.activeFilter == .all ? "No open pull requests" : "No PRs match this filter")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
+                VStack(spacing: 0) {
+                    if service.filteredPullRequests.isEmpty && !service.isLoading && service.errorMessage == nil {
+                        VStack(spacing: 0) {
+                            AppCard {
+                                VStack(spacing: 10) {
+                                    Image(systemName: service.activeFilter == .all ? "checkmark.circle" : "line.3.horizontal.decrease.circle")
+                                        .font(.system(size: 36))
+                                        .foregroundColor(service.activeFilter == .all ? AppTheme.success : .secondary)
+                                    Text(service.activeFilter == .all ? "All clear!" : "No matches")
+                                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                    Text(service.activeFilter == .all ? "No open pull requests" : "No PRs match this filter")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(18)
                             }
-                            .frame(maxWidth: .infinity)
-                            .padding(18)
-                        }
-                        .padding(.horizontal, 16)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 10)
 
+                            Spacer(minLength: 0)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        ScrollView {
+                            LazyVStack(alignment: .leading, spacing: 12) {
+                                let filtered = service.filteredPullRequests
+                                ForEach(Array(filtered.enumerated()), id: \.element.rowIdentity) { _, pr in
+                                    PRRowView(
+                                        pr: pr,
+                                        permissionsState: service.permissionsState,
+                                        currentUserLogin: service.currentUserLogin,
+                                        showComments: commentBinding(for: pr.id),
+                                        showThreads: threadBinding(for: pr.id)
+                                    )
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.top, 4)
+                            .padding(.bottom, 14)
+                        }
+                        .scrollIndicators(.hidden)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+
+                    AppDivider()
+
+                    // Footer
+                    HStack(spacing: 12) {
+                        if service.lastUpdated != nil {
+                            HStack(spacing: 6) {
+                                Image(systemName: "clock")
+                                    .font(.system(size: 10, weight: .semibold))
+                                Text("Updated \(service.lastUpdatedLabel)")
+                                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                                    .monospacedDigit()
+                            }
+                            .foregroundColor(AppTheme.muted)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(
+                                Capsule(style: .continuous)
+                                    .fill(Color.white.opacity(0.03))
+                                    .overlay(
+                                        Capsule(style: .continuous)
+                                            .stroke(AppTheme.stroke, lineWidth: 1)
+                                    )
+                            )
+                        }
                         Spacer()
-                    }
-                    .frame(maxHeight: 650)
-                } else {
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 12) {
-                            let filtered = service.filteredPullRequests
-                            ForEach(Array(filtered.enumerated()), id: \.element.rowIdentity) { _, pr in
-                                PRRowView(
-                                    pr: pr,
-                                    permissionsState: service.permissionsState,
-                                    currentUserLogin: service.currentUserLogin,
-                                    showComments: commentBinding(for: pr.id),
-                                    showThreads: threadBinding(for: pr.id)
-                                )
-                            }
+                        Button("Settings") {
+                            showingTokenSheet = true
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 4)
+                        .buttonStyle(AppToolbarButtonStyle(tint: .secondary))
+
+                        Button("Quit") {
+                            NSApplication.shared.terminate(nil)
+                        }
+                        .buttonStyle(AppToolbarButtonStyle(tint: .secondary))
+                        .keyboardShortcut("q", modifiers: .command)
                     }
-                    .frame(maxHeight: 650)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 10)
+                    .padding(.bottom, 12)
                 }
-
-                Divider()
-
-                // Footer
-                HStack(spacing: 12) {
-                    if service.lastUpdated != nil {
-                        Text("Updated \(service.lastUpdatedLabel)")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    }
-                    Spacer()
-                    Button("Settings") {
-                        showingTokenSheet = true
-                    }
-                    .buttonStyle(AppSoftButtonStyle(tint: .secondary))
-
-                    Button("Quit") {
-                        NSApplication.shared.terminate(nil)
-                    }
-                    .buttonStyle(AppSoftButtonStyle(tint: .secondary))
-                    .keyboardShortcut("q", modifiers: .command)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 6)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
         }
         .frame(width: 450, height: 670)
@@ -212,17 +228,23 @@ struct FilterPill: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Text(filter.rawValue)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .foregroundColor(isActive ? .primary : .secondary)
                 if count > 0 {
                     Text("\(count)")
-                        .font(.system(size: 9, weight: .bold))
-                    
+                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                        .monospacedDigit()
                         .foregroundColor(isActive ? AppTheme.accent : .secondary)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 1)
-                        .background(AppTheme.canvas)
-                        .cornerRadius(4)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(isActive ? AppTheme.accentSoft : AppTheme.elevatedSurface)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .stroke(isActive ? AppTheme.accent.opacity(0.24) : AppTheme.stroke, lineWidth: 1)
+                                )
+                        )
                 }
             }
             .padding(.horizontal, 12)
@@ -241,28 +263,29 @@ struct FilterPill: View {
 }
 
 struct HealthSummaryView: View {
-    let pullRequests: [PullRequest]
+    @ObservedObject var service: GitHubService
 
-    private var failingCount: Int { pullRequests.filter { $0.ciStatus == .failure || $0.hasConflicts }.count }
-    private var pendingCount: Int { pullRequests.filter { $0.ciStatus == .pending || $0.reviewState == .pending }.count }
-    private var goodCount: Int { pullRequests.filter { $0.ciStatus == .success && $0.reviewState == .approved }.count }
-    private var needsReviewCount: Int { pullRequests.filter { $0.isRequestedReviewer }.count }
+    private var needsAttentionCount: Int { service.count(for: .needsAttention) }
+    private var reviewRequestedCount: Int { service.count(for: .reviewRequested) }
+    private var pendingCount: Int { service.pullRequests.filter { $0.ciStatus == .pending || $0.reviewState == .pending }.count }
 
     private var summaryColor: Color {
-        if failingCount > 0 { return AppTheme.danger }
-        if pendingCount > 0 { return AppTheme.warning }
+        if needsAttentionCount > 0 { return AppTheme.danger }
+        if reviewRequestedCount > 0 { return AppTheme.warning }
+        if pendingCount > 0 { return AppTheme.info }
         return AppTheme.success
     }
 
     private var summaryIcon: String {
-        if failingCount > 0 { return "exclamationmark.circle.fill" }
+        if needsAttentionCount > 0 { return "exclamationmark.circle.fill" }
+        if reviewRequestedCount > 0 { return "eye.circle.fill" }
         if pendingCount > 0 { return "clock.circle.fill" }
         return "checkmark.circle.fill"
     }
 
     private var summaryText: String {
-        if failingCount > 0 { return "\(failingCount) need attention" }
-        if needsReviewCount > 0 { return "\(needsReviewCount) to review" }
+        if needsAttentionCount > 0 { return attentionLabel(count: needsAttentionCount) }
+        if reviewRequestedCount > 0 { return "\(reviewRequestedCount) to review" }
         if pendingCount > 0 { return "\(pendingCount) pending" }
         return "All good"
     }
@@ -276,26 +299,42 @@ struct HealthSummaryView: View {
                 .font(.system(size: 10, weight: .semibold, design: .rounded))
                 .foregroundColor(summaryColor)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(summaryColor.opacity(0.12))
-        .cornerRadius(999)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(
+            Capsule(style: .continuous)
+                .fill(summaryColor.opacity(0.12))
+                .overlay(
+                    Capsule(style: .continuous)
+                        .stroke(summaryColor.opacity(0.22), lineWidth: 1)
+                )
+        )
+    }
+
+    private func attentionLabel(count: Int) -> String {
+        if count == 1 { return "1 needs attention" }
+        return "\(count) need attention"
     }
 }
 
-#Preview("PR List") {
-    PRListView(service: GitHubService.preview(), showingTokenSheet: .constant(false))
+struct PRListView_Previews: PreviewProvider {
+    static var previews: some View {
+        Group {
+            PRListView(service: GitHubService.preview(), showingTokenSheet: .constant(false))
+                .previewDisplayName("PR List")
+
+            PRListView(
+                service: {
+                    let service = GitHubService.preview()
+                    service.activeFilter = .reviewRequested
+                    return service
+                }(),
+                showingTokenSheet: .constant(false)
+            )
+            .previewDisplayName("PR List - Review Requested")
+        }
         .preferredColorScheme(.dark)
         .frame(width: 420, height: 720)
         .padding(.horizontal)
-
-}
-
-#Preview("PR List - Review Requested") {
-    let service = GitHubService.preview()
-    service.activeFilter = .reviewRequested
-    return PRListView(service: service, showingTokenSheet: .constant(false))
-        .preferredColorScheme(.dark)
-        .frame(width: 420, height: 720)
-        .padding(.horizontal)
+    }
 }

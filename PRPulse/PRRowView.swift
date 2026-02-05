@@ -95,7 +95,7 @@ struct PRRowView: View {
                             .padding(.vertical, 3)
                             .background(
                                 Capsule(style: .continuous)
-                                    .fill(AppTheme.canvas)
+                                    .fill(AppTheme.elevatedSurface)
                                     .overlay(
                                         Capsule(style: .continuous)
                                             .stroke(AppTheme.stroke, lineWidth: 1)

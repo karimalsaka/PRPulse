@@ -92,22 +92,27 @@ struct PermissionLimitationRow: View {
 
 // MARK: - Preview
 
-#Preview("All Permissions") {
-    PermissionsBannerView(permissionsState: PermissionsState(
-        canReadPullRequests: true,
-        canReadCommitStatuses: true,
-        canReadReviews: true,
-        canReadComments: true
-    ))
-    .frame(width: 400)
-}
+struct PermissionsBannerView_Previews: PreviewProvider {
+    static var previews: some View {
+        Group {
+            PermissionsBannerView(permissionsState: PermissionsState(
+                canReadPullRequests: true,
+                canReadCommitStatuses: true,
+                canReadReviews: true,
+                canReadComments: true
+            ))
+            .previewDisplayName("All Permissions")
 
-#Preview("Limited Permissions") {
-    PermissionsBannerView(permissionsState: PermissionsState(
-        canReadPullRequests: true,
-        canReadCommitStatuses: false,
-        canReadReviews: false,
-        canReadComments: true
-    ))
-    .frame(width: 400)
+            PermissionsBannerView(permissionsState: PermissionsState(
+                canReadPullRequests: true,
+                canReadCommitStatuses: false,
+                canReadReviews: false,
+                canReadComments: true
+            ))
+            .previewDisplayName("Limited Permissions")
+        }
+        .frame(width: 400)
+        .padding()
+        .preferredColorScheme(.dark)
+    }
 }

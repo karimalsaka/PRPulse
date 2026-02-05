@@ -118,23 +118,26 @@ struct TokenInputView: View {
 
 // MARK: - Preview
 
-#Preview {
-    VStack {
-        TokenInputView(
-            tokenInput: .constant(""),
-            isValidating: false,
-            onValidate: {}
-        )
+struct TokenInputView_Previews: PreviewProvider {
+    static var previews: some View {
+        VStack {
+            TokenInputView(
+                tokenInput: .constant(""),
+                isValidating: false,
+                onValidate: {}
+            )
 
-        Divider()
-            .padding(.vertical)
+            Divider()
+                .padding(.vertical)
 
-        TokenInputView(
-            tokenInput: .constant("ghp_1234567890"),
-            isValidating: true,
-            onValidate: {}
-        )
+            TokenInputView(
+                tokenInput: .constant("ghp_1234567890"),
+                isValidating: true,
+                onValidate: {}
+            )
+        }
+        .frame(width: 500)
+        .padding()
+        .preferredColorScheme(.dark)
     }
-    .frame(width: 500)
-    .padding()
 }

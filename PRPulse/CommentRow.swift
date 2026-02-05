@@ -80,7 +80,7 @@ struct CommentRow: View {
         .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(AppTheme.surface)
+                .fill(AppTheme.elevatedSurface)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .fill(AppTheme.hoverOverlay.opacity(isHovered ? 1 : 0))

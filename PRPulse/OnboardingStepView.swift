@@ -51,22 +51,26 @@ struct OnboardingStepView<Content: View>: View {
 
 // MARK: - Preview
 
-#Preview {
-    OnboardingStepView(
-        title: "Welcome to blnk",
-        subtitle: "Monitor your GitHub pull requests from your menu bar"
-    ) {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("blnk helps you stay on top of your pull requests with:")
-                .font(.subheadline)
+struct OnboardingStepView_Previews: PreviewProvider {
+    static var previews: some View {
+        OnboardingStepView(
+            title: "Welcome to blnk",
+            subtitle: "Monitor your GitHub pull requests from your menu bar"
+        ) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("blnk helps you stay on top of your pull requests with:")
+                    .font(.subheadline)
 
-            BulletPointView(text: "Real-time status updates")
-            BulletPointView(text: "CI/CD check monitoring")
-            BulletPointView(text: "Review state tracking")
-            BulletPointView(text: "Recent comment notifications")
+                BulletPointView(text: "Real-time status updates")
+                BulletPointView(text: "CI/CD check monitoring")
+                BulletPointView(text: "Review state tracking")
+                BulletPointView(text: "Recent comment notifications")
+            }
         }
+        .frame(width: 600)
+        .padding()
+        .preferredColorScheme(.dark)
     }
-    .frame(width: 600)
 }
 
 // MARK: - Bullet Point Helper

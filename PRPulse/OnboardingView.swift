@@ -23,7 +23,7 @@ struct OnboardingView: View {
                 .padding(.horizontal, 24)
                 .padding(.top, 24)
 
-                Divider()
+                AppDivider()
 
                 navigationFooter
                     .padding(20)
@@ -85,7 +85,7 @@ struct OnboardingView: View {
             HStack(spacing: 8) {
                 ForEach(steps.indices, id: \.self) { index in
                     RoundedRectangle(cornerRadius: 999, style: .continuous)
-                        .fill(index <= currentStepIndex ? AppTheme.accent : Color.secondary.opacity(0.2))
+                        .fill(index <= currentStepIndex ? AppTheme.accent : AppTheme.stroke.opacity(0.9))
                         .frame(width: index == currentStepIndex ? 64 : 36, height: 6)
                         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: currentStepIndex)
                 }
@@ -449,28 +449,31 @@ extension OnboardingView {
                         Image(systemName: "arrow.clockwise")
                             .font(.system(size: 11, weight: .semibold))
                         Text("Refresh")
-                            .font(.system(size: 11, weight: .semibold))
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
                 }
-                .buttonStyle(.plain)
-                .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(AppTheme.surface)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(AppTheme.stroke, lineWidth: 1)
-                        )
-                )
+                .buttonStyle(AppToolbarButtonStyle(tint: AppTheme.accent))
             }
 
             HStack(spacing: 8) {
                 demoSummaryPill
                 Spacer()
-                Text("Updated just now")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                HStack(spacing: 6) {
+                    Image(systemName: "clock")
+                        .font(.system(size: 10, weight: .semibold))
+                    Text("Updated just now")
+                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                }
+                .foregroundColor(AppTheme.muted)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(Color.white.opacity(0.03))
+                        .overlay(
+                            Capsule(style: .continuous)
+                                .stroke(AppTheme.stroke, lineWidth: 1)
+                        )
+                )
             }
 
             HStack(spacing: 8) {
@@ -510,12 +513,19 @@ extension OnboardingView {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(demoFilter == filter ? .primary : .secondary)
                 Text("\(demoCount(for: filter))")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: 9, weight: .bold, design: .rounded))
+                    .monospacedDigit()
                     .foregroundColor(demoFilter == filter ? AppTheme.accent : .secondary)
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 1)
-                    .background(AppTheme.canvas)
-                    .cornerRadius(4)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(demoFilter == filter ? AppTheme.accentSoft : AppTheme.elevatedSurface)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .stroke(demoFilter == filter ? AppTheme.accent.opacity(0.24) : AppTheme.stroke, lineWidth: 1)
+                            )
+                    )
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 7)
@@ -862,6 +872,9 @@ struct FeatureLimitationView: View {
 
 // MARK: - Preview
 
-#Preview {
-    OnboardingView()
+struct OnboardingView_Previews: PreviewProvider {
+    static var previews: some View {
+        OnboardingView()
+            .preferredColorScheme(.dark)
+    }
 }

@@ -39,7 +39,7 @@ struct SettingsView: View {
                     }
                 }
 
-                Divider()
+                AppDivider()
 
                 footer
                     .padding(20)
@@ -126,7 +126,9 @@ struct SettingsView: View {
     }
 }
 
-#Preview("Settings") {
-    SettingsView(onSave: {})
-        .preferredColorScheme(.dark)
+struct SettingsView_Previews: PreviewProvider {
+    static var previews: some View {
+        SettingsView(onSave: {})
+            .preferredColorScheme(.dark)
+    }
 }
