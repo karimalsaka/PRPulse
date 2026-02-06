@@ -42,19 +42,19 @@ enum AppTheme {
 
     static let canvas = dynamic(
         light: NSColor(calibratedWhite: 1.0, alpha: 1),
-        dark: NSColor(calibratedWhite: 0.04, alpha: 1)
+        dark: NSColor(calibratedWhite: 0.08, alpha: 1)
     )
     static let surface = dynamic(
         light: NSColor(calibratedWhite: 0.98, alpha: 1),
-        dark: NSColor(calibratedWhite: 0.086, alpha: 1)
+        dark: NSColor(calibratedWhite: 0.126, alpha: 1)
     )
     static let cardSurface = dynamic(
         light: NSColor(calibratedWhite: 0.98, alpha: 1),
-        dark: NSColor(calibratedWhite: 0.074, alpha: 1)
+        dark: NSColor(calibratedWhite: 0.112, alpha: 1)
     )
     static let elevatedSurface = dynamic(
         light: NSColor(calibratedWhite: 0.99, alpha: 1),
-        dark: NSColor(calibratedWhite: 0.118, alpha: 1)
+        dark: NSColor(calibratedWhite: 0.156, alpha: 1)
     )
     static let stroke = dynamic(
         light: NSColor(calibratedWhite: 0.0, alpha: 0.05),
